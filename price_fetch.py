@@ -1,14 +1,15 @@
 import requests
 import csv
 import time
+import os
 
-def get_bitcoin_to_usd_exchange_rate():
-    # CoinGecko API endpoint for Bitcoin to USD exchange rate
+def get_crypto_to_usd_exchange_rates(ids):
+    # CoinGecko API endpoint for multiple cryptocurrencies to USD exchange rates
     endpoint = "https://api.coingecko.com/api/v3/simple/price"
     
     # Parameters for the API request
     params = {
-        "ids": "bitcoin",
+        "ids": ",".join(ids),  # Join the cryptocurrency IDs with a comma
         "vs_currencies": "usd"
     }
     
@@ -16,32 +17,35 @@ def get_bitcoin_to_usd_exchange_rate():
         response = requests.get(endpoint, params=params)
         data = response.json()
         
-        # Extract the Bitcoin to USD exchange rate from the response
-        bitcoin_to_usd_rate = data["bitcoin"]["usd"]
-        
-        return bitcoin_to_usd_rate
+        return data
     
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data: {e}")
         return None
 
-def save_to_csv(timestamp, price, filename):
+def save_to_csv(timestamp, exchange_rates, filename, write_headers=False):
     with open(filename, mode='a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([timestamp, price])
+        
+        # if not file_exists or write_headers:
+        #     headers = ['timestamp'] + ids
+        #     writer.writerow(headers)
+        
+        row = [timestamp] + [exchange_rates[crypto_id]['usd'] for crypto_id in ids]
+        writer.writerow(row)
 
 if __name__ == "__main__":
-    filename = "bitcoin_exchange_rate.csv"
-
+    filename = "crypto_exchange_rates.csv"
+    ids = ["bitcoin", "ethereum", "dogecoin", "litecoin", "ripple", "cardano", "polkadot", "stellar", "chainlink", "shiba-inu", "solana"]
     while True:
         timestamp = int(time.time())
-        exchange_rate = get_bitcoin_to_usd_exchange_rate()
+        exchange_rates = get_crypto_to_usd_exchange_rates(ids)
         
-        if exchange_rate is not None:
-            print(f"Timestamp: {timestamp}, Bitcoin to USD exchange rate: ${exchange_rate}")
-            save_to_csv(timestamp, exchange_rate, filename)
+        if exchange_rates is not None:
+            print(f"Timestamp: {timestamp}, Exchange rates: {exchange_rates}")
+            save_to_csv(timestamp, exchange_rates, filename, write_headers=True)
         else:
-            print("Failed to fetch the exchange rate.")
+            print("Failed to fetch the exchange rates.")
         
         # Wait for one minute before the next iteration
         time.sleep(60)
