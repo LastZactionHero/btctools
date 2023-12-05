@@ -2,8 +2,8 @@ import csv
 import time
 
 # Initial balances
-bitcoin_balance = 1.0  # Initial Bitcoin balance
-usd_balance = 0  # Initial USD balance
+bitcoin_balance = 0.0  # Initial Bitcoin balance
+usd_balance = 1000  # Initial USD balance
 
 # Minimum threshold for buy/sell alerts (default to $10)
 min_threshold = 10.0
