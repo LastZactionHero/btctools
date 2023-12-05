@@ -1,9 +1,10 @@
+import argparse
 import csv
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import time
 
 # Load data from a CSV file
 def load_data_from_csv(filename):
@@ -17,49 +18,82 @@ def load_data_from_csv(filename):
     return data
 
 # Create a time series dataset
-def create_time_series_dataset(data, window_size=10):
+def create_time_series_dataset(data, window_size=10, prediction_steps=10):
     X, y = [], []
 
-    for i in range(len(data) - window_size):
+    for i in range(len(data) - window_size - prediction_steps + 1):
         X.append(data[i:i+window_size])
-        y.append(data[i+window_size][1])  # Price for the next time
+        y.append(data[i+window_size:i+window_size+prediction_steps])
 
     return np.array(X), np.array(y)
 
 # Define the RNN model
-def create_rnn_model(input_shape):
+def create_rnn_model(input_shape, prediction_steps):
     model = keras.Sequential([
         keras.layers.LSTM(50, activation='relu', input_shape=input_shape),
-        keras.layers.Dense(1)
+        keras.layers.Dense(prediction_steps)
     ])
     model.compile(optimizer='adam', loss='mse')
     return model
 
+# Use the trained model to make predictions for the next steps
+def predict_next_steps(model, X, prediction_steps):
+    # Reshape the input data to be 3D (batch_size, time_steps, input_dim)
+    X = X.reshape((1, *X.shape))
+
+    # Make predictions
+    predicted_prices = model.predict(X)[0]
+    return predicted_prices
+
 if __name__ == "__main__":
-    # Load data from a CSV file
-    data = load_data_from_csv("bitcoin_data.csv")  # Replace with your CSV file path
+    parser = argparse.ArgumentParser(description="Predict the next 10 minutes of prices in a time series from a CSV file.")
+    parser.add_argument("csv_file", type=str, help="Path to the CSV file containing the time series data")
+    args = parser.parse_args()
 
-    # Create a time series dataset
-    window_size = 10
-    X, y = create_time_series_dataset(data, window_size)
+    while True:
+        # Load data from the specified CSV file
+        data = load_data_from_csv(args.csv_file)
 
-    # Split the dataset into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Create a time series dataset for predicting the next 10 minutes (10 steps)
+        window_size = 10
+        prediction_steps = 10
+        X, y = create_time_series_dataset(data, window_size, prediction_steps)
 
-    # Normalize the data
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
+        # Modify y to include only the price information for the next 10 steps
+        y = y[:, :, 1]  # Keep only the price information
 
-    # Reshape input data to be 3D (batch_size, time_steps, input_dim)
-    input_shape = (X_train.shape[1], X_train.shape[2])
-    X_train = X_train.reshape((-1, *input_shape))
-    X_test = X_test.reshape((-1, *input_shape))
+        # Normalize the data
+        scaler = StandardScaler()
 
-    # Create and train the RNN model
-    model = create_rnn_model(input_shape)
-    model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
+        # Flatten and reshape input data to be 2D
+        X = X.reshape(X.shape[0], -1)
 
-    # Evaluate the model
-    test_loss = model.evaluate(X_test, y_test)
-    print(f"Test loss: {test_loss}")
+        # Fit and transform the scaler on the data
+        X = scaler.fit_transform(X)
+
+        # Reshape input data to be 3D (batch_size, time_steps, input_dim)
+        input_shape = (window_size, 2)  # Two features: timestamp and price_usd
+        X = X.reshape((-1, *input_shape))
+
+        # Create and train the RNN model
+        model = create_rnn_model(input_shape, prediction_steps)
+        model.fit(X, y, epochs=100, batch_size=32)
+
+        # Use the trained model to make predictions for the next 10 minutes
+        last_window = X[-1]  # Take the last window from the data
+        predicted_prices = predict_next_steps(model, last_window, prediction_steps)
+
+        print("Predicted prices for the next 10 minutes:")
+        for i, price in enumerate(predicted_prices):
+            print(f"Minute {i+1}: {price:.2f}")
+
+        # Save the predictions to a CSV file
+        with open("./predictions.csv", 'w', newline='') as file:
+            writer = csv.writer(file)
+            for price in predicted_prices:
+                print(price)
+                writer.writerow([price])
+            file.close()
+
+        # Wait for one minute before the next iteration
+        time.sleep(60)
