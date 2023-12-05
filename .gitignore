@@ -1,0 +1,43 @@
+# macOS system files that can be safely ignored
+.DS_Store
+
+# TextMate project file
+/*.tmproj
+
+# Xcode files
+*.pbxuser
+*.xcworkspace/
+*.xcuserdata/
+
+# macOS folder attributes
+.Spotlight-V100
+.Trashes
+__MACOSX/
+
+# Thumbnails
+._*
+
+# Package files
+*.pkg
+
+# Compiled Python files
+__pycache__/
+
+# Compiled Java classes and jars
+*.class
+*.jar
+
+# Compiled C++ files
+*.suo
+*.user
+*.sdf
+
+# Compiled dynamic libraries
+*.dylib
+
+# Log files and crash reports
+*.log
+*.crash
+
+# Virtual environment
+venv/
