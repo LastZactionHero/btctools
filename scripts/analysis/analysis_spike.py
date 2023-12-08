@@ -2,7 +2,7 @@ import sys
 import pandas as pd
 import numpy as np
 
-OUTPUT_FILENAME = "./data/rise_series_real.csv"
+OUTPUT_FILENAME = "../../data/rise_series_real.csv"
 
 # Find currencies that:
 # Rise by a minimum 5%
