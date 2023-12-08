@@ -2,24 +2,26 @@ import sys
 import pandas as pd
 import numpy as np
 
-OUTPUT_FILENAME = "../../data/rise_series_fake.csv"
+
 
 # Find currencies that:
 # Rise by a minimum 5%
 MINIMUM_RISE_PERCENTAGE = 0.02
 # ... in less than 30 minutes
-MAX_RISE_MINUTES = 120
+MAX_RISE_MINUTES = 30
 # ... and does not fall by 1%
 MAX_FALL_PERCENTAGE = 0.01
 # ... for at least 10 minutes.
 MINIMUM_HOLD_MINUTES = 10
 # Length of time to capture prior to rise sequence
-PREFETCH_MINUTES = 60
+PREFETCH_MINUTES = 30
 # Offset into the run
-PRERUN_OFFSET = 5
+PRERUN_OFFSET = 1
 
 file_path = sys.argv[1]
 data = pd.read_csv(file_path) # 1754 x 80
+
+output_filename = sys.argv[2]
 
 found = {}
 
@@ -72,4 +74,4 @@ for coin in found:
         prefetch_sequence = data[coin][time - PREFETCH_MINUTES + PRERUN_OFFSET: time + PRERUN_OFFSET]
         out.append(prefetch_sequence.to_numpy().round(5))
 out = np.vstack(out)
-pd.DataFrame(out).to_csv(OUTPUT_FILENAME, index=False)
+pd.DataFrame(out).to_csv(output_filename, index=False)
