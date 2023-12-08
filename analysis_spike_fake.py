@@ -6,9 +6,9 @@ OUTPUT_FILENAME = "./data/rise_series_fake.csv"
 
 # Find currencies that:
 # Rise by a minimum 5%
-MINIMUM_RISE_PERCENTAGE = 0.01
+MINIMUM_RISE_PERCENTAGE = 0.02
 # ... in less than 30 minutes
-MAX_RISE_MINUTES = 60
+MAX_RISE_MINUTES = 120
 # ... and does not fall by 1%
 MAX_FALL_PERCENTAGE = 0.01
 # ... for at least 10 minutes.
@@ -22,7 +22,7 @@ data = pd.read_csv(file_path) # 1754 x 80
 found = {}
 
 for row_idx, row in data.iterrows():
-    if row_idx < PREFETCH_MINUTES:
+    if row_idx < MAX_RISE_MINUTES:
         continue
 
     for col_idx, col in enumerate(data.columns[1:]):

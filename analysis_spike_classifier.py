@@ -52,12 +52,12 @@ X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
 
 # Create model
 model = Sequential([
-    # LSTM(50, input_shape=(X_train.shape[1], 1)),
-    # Dense(1, activation='sigmoid')
-    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
-    Dense(32, activation='relu'),
-    Dense(16, activation='relu'),
+    LSTM(50, input_shape=(X_train.shape[1], 1)),
     Dense(1, activation='sigmoid')
+    # Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    # Dense(32, activation='relu'),
+    # Dense(16, activation='relu'),
+    # Dense(1, activation='sigmoid')
 ])
 
 # Compile model
