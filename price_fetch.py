@@ -33,9 +33,6 @@ def save_to_csv(timestamp, exchange_rates, filename, write_headers=False):
         # headers = ['timestamp'] + ids
         # writer.writerow(headers)
 
-        for i in ids:
-            print("{}: {}".format(i, exchange_rates[i]))
-
         row = [timestamp] + [exchange_rates[crypto_id]['usd']
                              for crypto_id in ids]
         writer.writerow(row)
