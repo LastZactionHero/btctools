@@ -26,8 +26,8 @@ def scale_rows(arr):
     return np.array(scaled_data)
 
 # Load data
-rise_series_fake = load_data('../../data/rise_series_fake.csv', 0)
-rise_series_real = load_data('../../data/rise_series_real.csv', 1)
+rise_series_fake = load_data('data/rise_series_fake.csv', 0)
+rise_series_real = load_data('data/rise_series_real.csv', 1)
 
 # Combine and shuffle data
 data = pd.concat([rise_series_fake, rise_series_real]).sample(frac=1).reset_index(drop=True)
