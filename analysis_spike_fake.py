@@ -15,6 +15,8 @@ MAX_FALL_PERCENTAGE = 0.01
 MINIMUM_HOLD_MINUTES = 10
 # Length of time to capture prior to rise sequence
 PREFETCH_MINUTES = 60
+# Offset into the run
+PRERUN_OFFSET = 5
 
 file_path = sys.argv[1]
 data = pd.read_csv(file_path) # 1754 x 80
@@ -67,7 +69,7 @@ for row_idx, row in data.iterrows():
 out = []
 for coin in found:
     for time in found[coin]:
-        prefetch_sequence = data[coin][time - PREFETCH_MINUTES : time]
+        prefetch_sequence = data[coin][time - PREFETCH_MINUTES + PRERUN_OFFSET: time + PRERUN_OFFSET]
         out.append(prefetch_sequence.to_numpy().round(5))
 out = np.vstack(out)
 pd.DataFrame(out).to_csv(OUTPUT_FILENAME, index=False)

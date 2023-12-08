@@ -6,15 +6,17 @@ OUTPUT_FILENAME = "./data/rise_series_real.csv"
 
 # Find currencies that:
 # Rise by a minimum 5%
-MINIMUM_RISE_PERCENTAGE = 0.06
+MINIMUM_RISE_PERCENTAGE = 0.05
 # ... in less than 30 minutes
 MAX_RISE_MINUTES = 120
 # ... and does not fall by 1%
-MAX_FALL_PERCENTAGE = 0.02
+MAX_FALL_PERCENTAGE = 0.015
 # ... for at least 10 minutes.
 MINIMUM_HOLD_MINUTES = 10
 # Length of time to capture prior to rise sequence
-PREFETCH_MINUTES = 60
+PRERUN_MINUTES = 60
+# Offset into the run
+PRERUN_OFFSET = 5
 
 file_path = sys.argv[1]
 data = pd.read_csv(file_path) # 1754 x 80
@@ -68,9 +70,9 @@ out = []
 
 for coin in found:
     for time in found[coin]:
-        prefetch_sequence = data[coin][time - PREFETCH_MINUTES : time]
+        prerun_sequence = data[coin][time - PRERUN_MINUTES + PRERUN_OFFSET : time + PRERUN_OFFSET]
         # import pdb; pdb.set_trace()
-        out.append(prefetch_sequence.to_numpy().round(5))
+        out.append(prerun_sequence.to_numpy().round(5))
 
 out = np.vstack(out)
 pd.DataFrame(out).to_csv(OUTPUT_FILENAME, index=False)
