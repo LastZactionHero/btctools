@@ -28,4 +28,4 @@ predictions = loaded_model.predict(prefetch_series_scaled)
 for idx, prediction in enumerate(predictions):
     coin = data.columns[idx]
     if prediction[0] > 0.9:
-        print("Maybe!: {} {}".format(prediction[0], coin))
+        print("\n** Maybe!: {} {}".format(prediction[0], coin))
