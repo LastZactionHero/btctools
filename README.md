@@ -12,3 +12,9 @@ TRIALS:
 - Train deeper into the run
 - LSTM
 - Longer run- 1,4,8 hours
+
+EMBEDDING:
+- Train an embedding over 30 minute periods
+- K-Means into N groups
+- Evaluate the patterns: are there clear "profit" and "loss" patterns?
+- What are the patterns leading up to the "profit/loss" series? e.g. 1,1,4,2,1,*8* 
