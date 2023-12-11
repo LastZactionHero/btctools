@@ -1,14 +1,22 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+import sys
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+
+TRAINING_SEQUENCE_LENGTH = 120
+PREDICTION_SEQUENCE_LENGTH = 30
 
 # Load data
-file_path = './data/crypto_exchange_delta_smooth.csv'  # Replace with your CSV file path
+file_path = sys.argv[1]
 data = pd.read_csv(file_path)
+output_file = sys.argv[2]
 
 # Normalize the data
 scaler = MinMaxScaler(feature_range=(0, 1))
-scaled_data = scaler.fit_transform(data)
+scaled_data = 100.0 * scaler.fit_transform(data)
 
 # Prepare sequences
 def create_sequences(data, sequence_length):
@@ -19,15 +27,12 @@ def create_sequences(data, sequence_length):
         output.append(data[i + sequence_length])
     return np.array(sequences), np.array(output)
 
-sequence_length = 25  # Number of rows in each sequence
-X, y = create_sequences(scaled_data, sequence_length)
-
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+X, y = create_sequences(scaled_data, TRAINING_SEQUENCE_LENGTH)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Define the RNN model
 model = Sequential()
-model.add(LSTM(units=50, return_sequences=True, input_shape=(X.shape[1], X.shape[2])))
+model.add(LSTM(units=128, return_sequences=True, input_shape=(X.shape[1], X.shape[2])))
 model.add(Dropout(0.2))
 model.add(LSTM(units=50, return_sequences=False))
 model.add(Dropout(0.2))
@@ -37,32 +42,36 @@ model.add(Dense(units=y.shape[1]))
 model.compile(optimizer='adam', loss='mean_squared_error')
 
 # Train the model
-model.fit(X, y, epochs=100, batch_size=32)
+model.fit(X, y, epochs=50, batch_size=32, validation_data=(X_test, y_test))
+model.save(output_file)
+# loss, accuracy = model.evaluate(X_test, y_test)
+# print("Accuracy: {:.2f}%".format(accuracy * 100))
+# model = load_model(output_file)
 
 # Making predictions
-last_sequence = scaled_data[-sequence_length:]
-last_sequence = np.expand_dims(last_sequence, axis=0)
-predicted_output = model.predict(last_sequence)
+predictions = None
+last_sequence = scaled_data[-TRAINING_SEQUENCE_LENGTH:]
 
-# Inverse transform to get actual values
-predicted_output = scaler.inverse_transform(predicted_output)
-# print(predicted_output)
+for i in range(PREDICTION_SEQUENCE_LENGTH):
+    print("Prediction {}/{}".format(i, PREDICTION_SEQUENCE_LENGTH))
+    predicted_output = model.predict(np.array([last_sequence]))
 
-max_prediction = None
-max_prediction_col = None
+    # import pdb; pdb.set_trace()
+    if predictions is None:
+        predictions = np.array(predicted_output)
+    else:
+        predictions = np.concatenate((predictions, predicted_output), axis=0)
 
-print(predicted_output)
+    last_sequence = np.concatenate((last_sequence, predicted_output), axis=0)
+    last_sequence = last_sequence[1:]
 
-# Assuming 'predicted_output' is your prediction array and 'data' is your DataFrame
-predicted_values = predicted_output[0][3:]  # Assuming you want to process the first row of predictions
-column_names = data.columns[3:]  # Skip the first column if it's 'timestamp'
+prediction = scaler.inverse_transform(predictions) / 100
+prediction_totals = np.sum(predictions, axis=0)
 
-# Associate each prediction with its corresponding column name
-predictions_with_columns = list(zip(column_names, predicted_values))
 
-# Sort the predictions in descending order
-sorted_predictions = sorted(predictions_with_columns, key=lambda x: x[1], reverse=True)
 
-# Print the sorted values
-for column, value in sorted_predictions:
-    print(f"{value}\t{column}")
+coin_predictions = zip(data.columns, prediction_totals)
+coin_predictions = sorted(coin_predictions, key=lambda x: x[1], reverse=True)
+
+for coin, prediction in coin_predictions:
+    print("{:.5f}:\t{}".format(prediction, coin))

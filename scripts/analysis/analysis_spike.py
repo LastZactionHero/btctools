@@ -4,7 +4,7 @@ import numpy as np
 
 # Find currencies that:
 # Rise by a minimum 5%
-MINIMUM_RISE_PERCENTAGE = 0.03
+MINIMUM_RISE_PERCENTAGE = 0.04
 # ... in less than 30 minutes
 MAX_RISE_MINUTES = 30
 # ... and does not fall by 1%
@@ -12,9 +12,9 @@ MAX_FALL_PERCENTAGE = 0.01
 # ... for at least 10 minutes.
 MINIMUM_HOLD_MINUTES = 10
 # Length of time to capture prior to rise sequence
-PRERUN_MINUTES = 30
+PRERUN_MINUTES = 120
 # Offset into the run
-PRERUN_OFFSET = 1
+PRERUN_OFFSET = 5
 
 file_path = sys.argv[1]
 data = pd.read_csv(file_path) # 1754 x 80
@@ -24,7 +24,7 @@ output_filename = sys.argv[2]
 found = {}
 
 for row_idx, row in data.iterrows():
-    if row_idx < MAX_RISE_MINUTES:
+    if row_idx < max(MAX_RISE_MINUTES, PRERUN_MINUTES) or (row_idx + PRERUN_OFFSET) >= len(data) :
         continue
 
     for col_idx, col in enumerate(data.columns[1:]):

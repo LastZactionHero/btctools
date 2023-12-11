@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -6,24 +7,15 @@ from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from tensorflow.keras.optimizers import Adam
+from scaling import scale_rows
 
-OUTPUT_FILE = "../../models/spike.h5"
+output_file = sys.argv[1]
 
 # Load and preprocess data
 def load_data(filename, label):
     df = pd.read_csv(filename, header=0)
     df['label'] = label
     return df
-
-def scale_rows(arr):
-    scaler = StandardScaler()
-    scaled_data = []
-
-    for row in arr:
-        scaled_row = scaler.fit_transform(row.reshape(-1, 1)).flatten()
-        scaled_data.append(scaled_row)
-
-    return np.array(scaled_data)
 
 # Load data
 rise_series_fake = load_data('data/rise_series_fake.csv', 0)
@@ -52,12 +44,12 @@ X_test = X_test.reshape((X_test.shape[0], X_test.shape[1], 1))
 
 # Create model
 model = Sequential([
-    LSTM(50, input_shape=(X_train.shape[1], 1)),
-    Dense(1, activation='sigmoid')
-    # Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
-    # Dense(32, activation='relu'),
-    # Dense(16, activation='relu'),
+    # LSTM(50, input_shape=(X_train.shape[1], 1)),
     # Dense(1, activation='sigmoid')
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    Dense(32, activation='relu'),
+    Dense(16, activation='relu'),
+    Dense(1, activation='sigmoid')
 ])
 
 # Compile model
@@ -69,4 +61,4 @@ model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y
 loss, accuracy = model.evaluate(X_test, y_test)
 print("Accuracy: {:.2f}%".format(accuracy * 100))
 
-model.save(OUTPUT_FILE)
+model.save(output_file)

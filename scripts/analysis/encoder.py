@@ -6,21 +6,33 @@ from tensorflow.keras.layers import LSTM, Dense
 from sklearn.preprocessing import StandardScaler
 
 def scale_window(arr):
-    scaler = StandardScaler()
     scaled_data = []
 
     for row in arr:
-        scaled_row = scaler.fit_transform(row.reshape(-1, 1)).flatten()
+        b = np.delete(row, 0)
+        a = np.delete(row,len(row)-1)
+        scaled_row = 100 * (b - a) / a
+        print(scaled_row)
+        print("len: {} max: {}".format(len(scaled_row), max(scaled_row)))
         scaled_data.append(scaled_row)
-
     return np.array(scaled_data)
+
+# def scale_window(arr):
+#     scaler = StandardScaler()
+#     scaled_data = []
+
+#     for row in arr:
+#         scaled_row = scaler.fit_transform(row.reshape(-1, 1)).flatten()
+#         scaled_data.append(scaled_row)
+
+#     return np.array(scaled_data)
 
 
 # Load the CSV data into a pandas DataFrame
 df = pd.read_csv('./data/crypto_exchange_rates.csv', index_col=0)
 
 # Define the window size
-window_size = 15
+window_size = 1000
 
 # Create sliding windows for each coin
 windows = []
@@ -43,8 +55,9 @@ test_windows = windows[split_index:]
 
 # Create the autoencoder model
 model = Sequential()
-model.add(LSTM(128, activation='relu', input_shape=(window_size, 1)))
-model.add(Dense(32, activation='relu'))
+model.add(LSTM(1, activation='relu', input_shape=(window_size, 1)))
+model.add(Dense(1, activation='relu'))
+model.add(Dense(1, activation='relu'))
 model.add(Dense(window_size, activation='linear'))
 
 # Compile and train the model

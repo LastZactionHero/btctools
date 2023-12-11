@@ -6,17 +6,17 @@ import numpy as np
 
 # Find currencies that:
 # Rise by a minimum 5%
-MINIMUM_RISE_PERCENTAGE = 0.02
+MINIMUM_RISE_PERCENTAGE = 0.03
 # ... in less than 30 minutes
 MAX_RISE_MINUTES = 30
 # ... and does not fall by 1%
-MAX_FALL_PERCENTAGE = 0.01
+MAX_FALL_PERCENTAGE = 0.02
 # ... for at least 10 minutes.
 MINIMUM_HOLD_MINUTES = 10
 # Length of time to capture prior to rise sequence
-PREFETCH_MINUTES = 30
+PREFETCH_MINUTES = 120
 # Offset into the run
-PRERUN_OFFSET = 1
+PRERUN_OFFSET = 5
 
 file_path = sys.argv[1]
 data = pd.read_csv(file_path) # 1754 x 80
@@ -26,7 +26,7 @@ output_filename = sys.argv[2]
 found = {}
 
 for row_idx, row in data.iterrows():
-    if row_idx < MAX_RISE_MINUTES:
+    if row_idx < max(MAX_RISE_MINUTES, PREFETCH_MINUTES) or (row_idx + PRERUN_OFFSET) >= len(data) :
         continue
 
     for col_idx, col in enumerate(data.columns[1:]):
@@ -55,18 +55,18 @@ for row_idx, row in data.iterrows():
         # For each of these points, DOES NOT maintain above 4% for 10 minutes
         if(len(possible) > 0):
             for rise_idx in possible:
-        #         rise = data[col][row_idx + rise_idx]
+                rise = data[col][row_idx + rise_idx]
 
-        #         hold_range = data[col][row_idx + int(rise_idx) : row_idx + int(rise_idx) + MINIMUM_HOLD_MINUTES]
-        #         hold_time_minimum = min(hold_range)
-        #         fall_percentage = (hold_time_minimum - rise) / rise
-        #         if(-1 * fall_percentage > MAX_FALL_PERCENTAGE ):
-                print("It's a trap!: {} {}".format(col, row_idx))
-                if col in found.keys():
-                    found[col].append(row_idx)
-                else:
-                    found[col] = [row_idx]
-                break
+                hold_range = data[col][row_idx + int(rise_idx) : row_idx + int(rise_idx) + MINIMUM_HOLD_MINUTES]
+                hold_time_minimum = min(hold_range)
+                fall_percentage = (hold_time_minimum - rise) / rise
+                if(-1 * fall_percentage > MAX_FALL_PERCENTAGE ):
+                    print("It's a trap!: {} {}".format(col, row_idx))
+                    if col in found.keys():
+                        found[col].append(row_idx)
+                    else:
+                        found[col] = [row_idx]
+                    break
 
 out = []
 for coin in found:
