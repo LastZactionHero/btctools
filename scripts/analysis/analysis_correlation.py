@@ -1,8 +1,9 @@
 import pandas as pd
+import sys
 
 # Load your data
 # Replace 'file_path' with the path to your CSV file
-file_path = './data/crypto_exchange_delta.csv'
+file_path = sys.argv[1]
 data = pd.read_csv(file_path)
 
 # Set the timestamp as the index, if it's not already
