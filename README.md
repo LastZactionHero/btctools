@@ -18,3 +18,5 @@ EMBEDDING:
 - K-Means into N groups
 - Evaluate the patterns: are there clear "profit" and "loss" patterns?
 - What are the patterns leading up to the "profit/loss" series? e.g. 1,1,4,2,1,*8* 
+
+Encoder and cluster by trend correlation?
