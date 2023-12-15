@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 import pandas as pd
 
+
 # Load the correlation matrix
 data = pd.read_csv("./data/correlation_matrix.csv", index_col=0)
 correlation_matrix = data.values
