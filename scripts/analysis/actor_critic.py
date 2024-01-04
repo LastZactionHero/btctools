@@ -1,7 +1,8 @@
 import gymnasium as gym
 import numpy as np
-from gymnasium import spaces
 import tensorflow as tf
+from tensorflow.keras import layers
+from gymnasium import spaces
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
@@ -9,12 +10,15 @@ class SineWaveEnv(gym.Env):
     def __init__(self, step_size=0.4):
         super(SineWaveEnv, self).__init__()
         self.history_size = 10
-
         self.step_size = step_size
         self.current_step = 0
-        self.action_space = spaces.Discrete(2)  # 0: DOWN, 1: UP
+        self.action_space = spaces.Discrete(2)  # 0: SELL, 1: BUY
         self.observation_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         self.step_count = 0
+
+        self.holdings_usd = 100
+        self.holdings_coin = 0
+
 
     def step(self, action, max_steps):
         self.current_step += self.step_size
@@ -23,13 +27,24 @@ class SineWaveEnv(gym.Env):
         next_value = np.sin(self.current_step)
         current_value = np.sin(self.current_step - self.step_size)
 
-        # Determine reward
-        if (next_value > current_value and action == 1) or (next_value <= current_value and action == 0):
-            reward = 1
-        else:
-            reward = -1
+        current_holdings = self.total_holdings(current_value)
 
-        self.cumulative_reward += reward
+        if action == 1:
+            self.buy(current_value)
+        elif action == 0:
+            self.sell(current_value)
+
+        next_holdings = self.total_holdings(next_value)
+        delta_holdings = next_holdings - current_holdings
+
+        # Determine reward
+        # if (next_value > current_value and action == 1) or (next_value <= current_value and action == 0):
+        #     reward = 1
+        # else:
+        #     reward = -1
+        reward = np.float32(delta_holdings)
+        print(reward)
+        # print(f"C: {current_value.round(2)} N: {next_value.round(2)} CH: {current_holdings.round(2)}, NH: {next_holdings.round(2)}, Act: {action}")
 
         if self.step_count >= max_steps:
             done = True
@@ -38,14 +53,26 @@ class SineWaveEnv(gym.Env):
 
         info = {
             "step_count": self.step_count,
-            "cumulative_reward": self.cumulative_reward
+            # "cumulative_reward": self.cumulative_reward
         }  # Additional info, not necessary in this case
 
         return self.past_values(self.current_step), reward, done, info
 
+    def buy(self, coin_value):
+        self.holdings_coin += self.holdings_usd / coin_value
+        self.holdings_usd = 0
+
+    def sell(self, coin_value):
+        self.holdings_usd += self.holdings_coin * coin_value
+        self.holdings_coin = 0
+
+    def total_holdings(self, coin_value):
+        return self.holdings_usd + coin_value * self.holdings_coin
+
     def reset(self):
         self.step_count = 0
-        self.cumulative_reward = 0
+        self.holdings_usd = 100
+        self.holdings_coin = 0
 
         self.current_step = np.random.uniform(0, 2 * np.pi)
         return self.past_values(self.current_step)
@@ -56,10 +83,6 @@ class SineWaveEnv(gym.Env):
             sinval = np.sin(init_step - self.step_size * i)
             history = np.append(history, sinval)
         return history
-            
-
-import tensorflow as tf
-from tensorflow.keras import layers
 
 def build_actor(state_shape, action_space):
     model = tf.keras.Sequential([
@@ -78,27 +101,6 @@ def build_critic(state_shape):
         layers.Dense(1)
     ])
     return model
-
-# actor = build_actor(state_shape=(3,), action_space=2)
-# critic = build_critic(state_shape=(3,))
-
-# def build_actor(state_shape, action_space):
-#     model = tf.keras.Sequential([
-#         layers.Input(shape=state_shape),
-#         layers.LSTM(128, return_sequences=True),
-#         layers.LSTM(128),
-#         layers.Dense(action_space, activation='softmax')
-#     ])
-#     return model
-
-# def build_critic(state_shape):
-#     model = tf.keras.Sequential([
-#         layers.Input(shape=state_shape),
-#         layers.LSTM(128, return_sequences=True),
-#         layers.LSTM(128),
-#         layers.Dense(1)
-#     ])
-#     return model
 
 # Assuming your state is a sequence of states, update the shape accordingly
 # For example, if you consider the last 5 states, the shape would be (5, 2)
@@ -155,7 +157,7 @@ for episode in range(num_episodes):
     # Convert lists to tensor
     episode_states = tf.convert_to_tensor(episode_states)
     episode_actions = tf.convert_to_tensor(episode_actions)
-    discounted_rewards = tf.convert_to_tensor(discounted_rewards)
+    discounted_rewards = tf.cast(tf.convert_to_tensor(discounted_rewards), dtype=tf.float32)
 
     with tf.GradientTape() as actor_tape, tf.GradientTape() as critic_tape:
       # Recompute the probabilities and critic value
