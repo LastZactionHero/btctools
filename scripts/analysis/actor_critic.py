@@ -6,6 +6,13 @@ from gymnasium import spaces
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
+
+# Crypto Data:
+# - Change this to sin-deltas
+# - Price deltas
+# - Hourly prices for 1 week
+# - 5-minutes for last 12 hours
+
 class SineWaveEnv(gym.Env):
     def __init__(self, step_size=0.4):
         super(SineWaveEnv, self).__init__()
