@@ -24,8 +24,8 @@ class SineWaveEnv(gym.Env):
         self.current_step += self.step_size
         self.step_count += 1
 
-        next_value = np.sin(self.current_step)
-        current_value = np.sin(self.current_step - self.step_size)
+        next_value = np.sin(self.current_step) + 1
+        current_value = np.sin(self.current_step - self.step_size) + 1
 
         current_holdings = self.total_holdings(current_value)
 
@@ -37,14 +37,14 @@ class SineWaveEnv(gym.Env):
         next_holdings = self.total_holdings(next_value)
         delta_holdings = next_holdings - current_holdings
 
+        # print(f"Current Holdings: {current_holdings}, Next: {next_holdings}, Delta: {delta_holdings}")
         # Determine reward
         # if (next_value > current_value and action == 1) or (next_value <= current_value and action == 0):
         #     reward = 1
         # else:
         #     reward = -1
-        reward = np.float32(delta_holdings)
-        print(reward)
-        # print(f"C: {current_value.round(2)} N: {next_value.round(2)} CH: {current_holdings.round(2)}, NH: {next_holdings.round(2)}, Act: {action}")
+        # reward = np.float32(delta_holdings)
+        reward = (next_holdings - current_holdings) / current_holdings 
 
         if self.step_count >= max_steps:
             done = True
@@ -59,12 +59,16 @@ class SineWaveEnv(gym.Env):
         return self.past_values(self.current_step), reward, done, info
 
     def buy(self, coin_value):
+        #print(f"Buying at {coin_value}. Current USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
         self.holdings_coin += self.holdings_usd / coin_value
         self.holdings_usd = 0
+        #print(f"Bought at {coin_value}. New USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
 
     def sell(self, coin_value):
+        #print(f"Selling at {coin_value}. Current USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
         self.holdings_usd += self.holdings_coin * coin_value
         self.holdings_coin = 0
+        #print(f"Sold at {coin_value}. New USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
 
     def total_holdings(self, coin_value):
         return self.holdings_usd + coin_value * self.holdings_coin
@@ -80,7 +84,7 @@ class SineWaveEnv(gym.Env):
     def past_values(self, init_step):
         history = np.array([])
         for i in reversed(range(self.history_size)):
-            sinval = np.sin(init_step - self.step_size * i)
+            sinval = np.sin(init_step - self.step_size * i) + 1
             history = np.append(history, sinval)
         return history
 
@@ -112,7 +116,7 @@ import tensorflow as tf
 
 # Hyperparameters
 num_episodes = 1000
-learning_rate = 0.01
+learning_rate = 0.001
 actor_optimizer = tf.keras.optimizers.Adam(learning_rate)
 critic_optimizer = tf.keras.optimizers.Adam(learning_rate)
 
