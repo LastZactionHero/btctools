@@ -16,16 +16,16 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 class SineWaveEnv(gym.Env):
     def __init__(self, step_size=0.4):
         super(SineWaveEnv, self).__init__()
+        self.trade_cost = 0.99
         self.history_size = 10
         self.step_size = step_size
         self.current_step = 0
-        self.action_space = spaces.Discrete(2)  # 0: SELL, 1: BUY
+        self.action_space = spaces.Discrete(3)  # 0: SELL, 1: BUY, 2: HOLD
         self.observation_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         self.step_count = 0
 
         self.holdings_usd = 100
         self.holdings_coin = 0
-
 
     def step(self, action, max_steps):
         self.current_step += self.step_size
@@ -40,18 +40,20 @@ class SineWaveEnv(gym.Env):
             self.buy(current_value)
         elif action == 0:
             self.sell(current_value)
+        elif action == 2:
+            pass
 
         next_holdings = self.total_holdings(next_value)
         delta_holdings = next_holdings - current_holdings
 
-        # print(f"Current Holdings: {current_holdings}, Next: {next_holdings}, Delta: {delta_holdings}")
-        # Determine reward
-        # if (next_value > current_value and action == 1) or (next_value <= current_value and action == 0):
-        #     reward = 1
-        # else:
-        #     reward = -1
-        # reward = np.float32(delta_holdings)
-        reward = (next_holdings - current_holdings) / current_holdings 
+        reward = 0
+        if self.step_count >= max_steps:
+            if next_holdings == 100:
+                reward = -100.0
+            else:
+                reward = 100.0 * (next_holdings - 100.0) / 100.0
+
+        print(f"Current Holdings: {current_holdings}, Next: {next_holdings}, Delta: {delta_holdings}, Reward: {reward}, Delta Value: {next_value - current_value}")
 
         if self.step_count >= max_steps:
             done = True
@@ -60,20 +62,21 @@ class SineWaveEnv(gym.Env):
 
         info = {
             "step_count": self.step_count,
-            # "cumulative_reward": self.cumulative_reward
-        }  # Additional info, not necessary in this case
+        }
 
         return self.past_values(self.current_step), reward, done, info
 
     def buy(self, coin_value):
-        #print(f"Buying at {coin_value}. Current USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
-        self.holdings_coin += self.holdings_usd / coin_value
+        print(" - Buy")
+        # print(f"Buying at {coin_value}. Current USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
+        self.holdings_coin += self.trade_cost * (self.holdings_usd / coin_value)
         self.holdings_usd = 0
         #print(f"Bought at {coin_value}. New USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
 
     def sell(self, coin_value):
+        print(" - Sell")
         #print(f"Selling at {coin_value}. Current USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
-        self.holdings_usd += self.holdings_coin * coin_value
+        self.holdings_usd += self.trade_cost * self.holdings_coin * coin_value
         self.holdings_coin = 0
         #print(f"Sold at {coin_value}. New USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
 
@@ -114,9 +117,9 @@ def build_critic(state_shape):
     return model
 
 # Assuming your state is a sequence of states, update the shape accordingly
-# For example, if you consider the last 5 states, the shape would be (5, 2)
+# For example, if you consider the last 5 states, the shape would be (5, 3)
 with tf.device('/GPU:0'):
-    actor = build_actor(state_shape=(10,), action_space=2)
+    actor = build_actor(state_shape=(10,), action_space=3)
     critic = build_critic(state_shape=(10,))
 
 import tensorflow as tf
@@ -132,7 +135,7 @@ env = SineWaveEnv()
 
 longest_run = 20
 
-gamma = 1.0  # Discount factor
+gamma = 0.99  # Discount factor
 
 for episode in range(num_episodes):
     actions = []
@@ -145,7 +148,7 @@ for episode in range(num_episodes):
         action_probs = actor(np.array([state]), training=True)
         critic_value = critic(np.array([state]), training=True)
 
-        action = np.random.choice(2, p=np.squeeze(action_probs))
+        action = np.random.choice(3, p=np.squeeze(action_probs))
         actions.append(action)
 
         next_state, reward, done, info = env.step(action, longest_run)
@@ -176,7 +179,7 @@ for episode in range(num_episodes):
       current_values = critic(episode_states, training=True)
 
       # Extract the probabilities of the chosen actions
-      action_probs = tf.reduce_sum(current_probs * tf.one_hot(episode_actions, 2), axis=1)
+      action_probs = tf.reduce_sum(current_probs * tf.one_hot(episode_actions, 3), axis=1)
 
       # Calculate actor loss
       advantages = tf.squeeze(discounted_rewards) - tf.squeeze(current_values)
