@@ -1,21 +1,17 @@
 import numpy as np
 import pandas as pd
 import sys
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
-
-# NEXT STEPS
-# - Build/Train the model
-#   INPUT:
-#   - dense1: last 5 days embedding
-#   - last1: last day delta @ 5 minutes
-#   - lstm2: last day price @ 5 minutes
-#   - similarities: btc/etc coeffecient
-#   OUTPUT:
-#   - next day min/max
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Input, Dense, Flatten, Dropout, Reshape, LSTM, RepeatVector, TimeDistributed
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Model
 
 BAD_ROW_ANNOTATION = 999999
 MAX_TIMESTAMP_DELTA = 300
-SEQUENCE_MODULO = 100
+SEQUENCE_MODULO = 5
+EPOCHS = 1000
 
 # Load CSV
 file_path = sys.argv[1]
@@ -70,15 +66,10 @@ data_price_annotated_scaled = data_price_annotated_scaled[1:]
 
 # Create Sequences
 # - Last 5 days, in hour intervals
-# - Last day, 5 minute intervals
 sequences_delta_last_5_days_hour_by_hour = []
-sequences_delta_last_day_by_minute = []
-sequences_price_last_day_by_minute = []
-sequences_next_days_extremes = []
-
 
 MAX_LOOKBEHIND_MINUTES = 5 * 24 * 60
-MAX_LOOKAHEAD_MINUTES = 24 * 60
+MAX_LOOKAHEAD_MINUTES = 0
 
 for idx in range(MAX_LOOKBEHIND_MINUTES, (len(data_delta_annotated_scaled) - MAX_LOOKAHEAD_MINUTES) - 1):
     # Filter bad sequences
@@ -86,7 +77,7 @@ for idx in range(MAX_LOOKBEHIND_MINUTES, (len(data_delta_annotated_scaled) - MAX
         if idx < (bad_row + MAX_LOOKBEHIND_MINUTES + 1) and idx > (bad_row - MAX_LOOKAHEAD_MINUTES - 1):
             continue
 
-    if idx % 1000 == 0:
+    if idx % 100 == 0:
         print(f"Sequence: {idx}/{len(data_delta_annotated_scaled)}")
         
     if idx % SEQUENCE_MODULO != 0:
@@ -96,31 +87,45 @@ for idx in range(MAX_LOOKBEHIND_MINUTES, (len(data_delta_annotated_scaled) - MAX
     last_5_days_by_hour.append(idx)
     sequence_delta_last_5_days_by_hour = data_delta_annotated_scaled[last_5_days_by_hour]
 
-    last_day_by_5_minutes = list(range(idx - MAX_LOOKAHEAD_MINUTES, idx, 5))
-    last_day_by_5_minutes.append(idx)
-    sequence_delta_last_day_by_minute = data_delta_annotated_scaled[last_day_by_5_minutes]
-    sequence_price_last_day_by_minute = data_price_annotated_scaled[last_day_by_5_minutes]
-
-    # Max/Max Next Day Prices
-    price_next_day_by_minute = data_price_annotated_scaled[idx:idx+MAX_LOOKAHEAD_MINUTES]
-    next_day_max_prices = np.max(price_next_day_by_minute, axis=0).reshape(1, -1)
-    next_day_min_prices = np.min(price_next_day_by_minute, axis=0).reshape(1, -1)
-    next_day_extreme_prices = np.concatenate((next_day_min_prices, next_day_max_prices), axis=0)
-
     sequences_delta_last_5_days_hour_by_hour.append(sequence_delta_last_5_days_by_hour)
-    sequences_delta_last_day_by_minute.append(sequence_delta_last_day_by_minute)
-    sequences_price_last_day_by_minute.append(sequence_price_last_day_by_minute)
-    sequences_next_days_extremes.append(next_day_extreme_prices)
+
+
+input_shape = sequences_delta_last_5_days_hour_by_hour[0].shape
+embedding_size = 20  # Size of the embedding vector
+
+inputs = Input(shape=input_shape)
+
+# x = Flatten()(inputs)  # Flatten the input
+# x = Dense(embedding_size, activation='relu')(x)
+# x = Dropout(0.1)(x)
+# encoder_output = Dense(embedding_size, activation='relu')(x)
+x = LSTM(100, activation='tanh', return_sequences=True)(inputs)
+x = Dropout(0.2)(x)
+encoder_output = LSTM(embedding_size, activation='tanh')(x)  # Final encoder output
+encoder_model = Model(inputs=inputs, outputs=encoder_output)
+
+# x = Dense(input_shape[0] * input_shape[1], activation='linear')(encoder_output)
+# outputs = Reshape(input_shape)(x)
+
+x = LSTM(100, activation='tanh', return_sequences=True)(x)
+outputs = TimeDistributed(Dense(input_shape[1]))(x)
+
+# Create the full model
+model = Model(inputs=inputs, outputs=outputs)
+optimizer = Adam(learning_rate=0.001, clipnorm=1.0)  # Added gradient clipping
+model.compile(optimizer=optimizer, loss='mse')
+# model.compile(optimizer='adam', loss='mse')
+
+sequences = np.array(sequences_delta_last_5_days_hour_by_hour)
+sequences_train, sequences_val = train_test_split(sequences, test_size=0.2, random_state=42)
+
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1)
+history = model.fit(sequences_train, sequences_train, epochs=EPOCHS, batch_size=32, validation_data=(sequences_val, sequences_val), callbacks=[early_stopping])
+
+encoder_model = Model(inputs=inputs, outputs=encoder_output)
+encoder_model.save('./models/multi_predict_103_encoder.h5')
+
+predict = sequences[-2:-1]
+px = encoder_model.predict(predict)
 
 import pdb; pdb.set_trace()
-
-# Inputs:
-# - Embedding
-# - Coin global max
-# - Coin global min
-# - Coin last 5 days, 5 minute intervals
-#
-# Predict:
-# - Coin 1 day min
-# - Coin 1 day max
-
