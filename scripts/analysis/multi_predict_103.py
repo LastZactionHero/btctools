@@ -4,13 +4,11 @@ import sys
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 
 # NEXT STEPS
-# - Known global min/max
 # - Build/Train the model
 #   INPUT:
 #   - lstm1: last 5 days delta
 #   - lastm2: last day delta
 #   - lstm3: last day price
-#   - dense1: known global min/max )
 #   OUTPUT:
 #   - next day min/max
 # Embedding vector
@@ -78,6 +76,7 @@ sequences_delta_last_day_by_minute = []
 sequences_price_last_day_by_minute = []
 sequences_next_days_extremes = []
 
+
 MAX_LOOKBEHIND_MINUTES = 5 * 24 * 60
 MAX_LOOKAHEAD_MINUTES = 24 * 60
 
@@ -102,18 +101,16 @@ for idx in range(MAX_LOOKBEHIND_MINUTES, (len(data_delta_annotated_scaled) - MAX
     sequence_delta_last_day_by_minute = data_delta_annotated_scaled[last_day_by_5_minutes]
     sequence_price_last_day_by_minute = data_price_annotated_scaled[last_day_by_5_minutes]
 
-    # TODO: Known Global Min/Max
-
     # Max/Max Next Day Prices
     price_next_day_by_minute = data_price_annotated_scaled[idx:idx+MAX_LOOKAHEAD_MINUTES]
-    max_prices = np.max(price_next_day_by_minute, axis=0).reshape(1, -1)
-    min_prices = np.min(price_next_day_by_minute, axis=0).reshape(1, -1)
-    combined_prices = np.concatenate((max_prices, min_prices), axis=0)
+    next_day_max_prices = np.max(price_next_day_by_minute, axis=0).reshape(1, -1)
+    next_day_min_prices = np.min(price_next_day_by_minute, axis=0).reshape(1, -1)
+    next_day_extreme_prices = np.concatenate((next_day_min_prices, next_day_max_prices), axis=0)
 
     sequences_delta_last_5_days_hour_by_hour.append(sequence_delta_last_5_days_by_hour)
     sequences_delta_last_day_by_minute.append(sequence_delta_last_day_by_minute)
     sequences_price_last_day_by_minute.append(sequence_price_last_day_by_minute)
-    sequences_next_days_extremes.append(combined_prices)
+    sequences_next_days_extremes.append(next_day_extreme_prices)
 
 import pdb; pdb.set_trace()
 
