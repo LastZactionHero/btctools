@@ -3,21 +3,36 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
 from gymnasium import spaces
+import pandas as pd
+import random
 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
+
+data = pd.read_csv("./data/crypto_exchange_rates.csv")
+
+SEQUENCE_INCREMENT_MINUTES = 5
+SEQUENCE_LENGTH_MINUTES = 5 * 24 * 60 # 5 days
+EPISODE_LENGTH_MINUTES = 24 * 60
+
+coin_values = data['pangolin'].values
+
+# sequences = []
+# for i in range(len(coin_values) - SEQUENCE_LENGTH_MINUTES):
+#     idx = list(range(i, i + SEQUENCE_LENGTH_MINUTES, SEQUENCE_INCREMENT_MINUTES))
+#     sequences.append(coin_values[idx])
+
+# random.choice(sequences)
 
 # Crypto Data:
 # - Change this to sin-deltas
 # - Price deltas
 # - Hourly prices for 1 week
 # - 5-minutes for last 12 hours
-
 class SineWaveEnv(gym.Env):
     def __init__(self, step_size=0.4):
         super(SineWaveEnv, self).__init__()
         self.trade_cost = 0.99
-        self.history_size = 10
         self.step_size = step_size
         self.current_step = 0
         self.action_space = spaces.Discrete(3)  # 0: SELL, 1: BUY, 2: HOLD
@@ -28,11 +43,15 @@ class SineWaveEnv(gym.Env):
         self.holdings_coin = 0
 
     def step(self, action, max_steps):
-        self.current_step += self.step_size
+        self.current_step += 1
         self.step_count += 1
 
-        next_value = np.sin(self.current_step) + 1
-        current_value = np.sin(self.current_step - self.step_size) + 1
+
+        current_sequence = self.past_values(self.current_step)
+        next_sequence = self.past_values(self.current_step + 1)
+
+        current_value = current_sequence[-1]
+        next_value = next_sequence[-1]
 
         current_holdings = self.total_holdings(current_value)
 
@@ -46,14 +65,17 @@ class SineWaveEnv(gym.Env):
         next_holdings = self.total_holdings(next_value)
         delta_holdings = next_holdings - current_holdings
 
-        reward = 0
-        if self.step_count >= max_steps:
-            if next_holdings == 100:
-                reward = -100.0
-            else:
-                reward = 100.0 * (next_holdings - 100.0) / 100.0
+        if delta_holdings > 1000:
+            import pdb; pdb.set_trace()
 
-        print(f"Current Holdings: {current_holdings}, Next: {next_holdings}, Delta: {delta_holdings}, Reward: {reward}, Delta Value: {next_value - current_value}")
+        reward = delta_holdings
+        if self.step_count >= max_steps:
+            if next_holdings == 100.0:
+                reward = -1000.0
+            else:
+                reward = delta_holdings
+
+        # print(f"Current Holdings: {current_holdings}, Next: {next_holdings}, Delta: {delta_holdings}, Reward: {reward}, Delta Value: {next_value - current_value}")
 
         if self.step_count >= max_steps:
             done = True
@@ -67,14 +89,14 @@ class SineWaveEnv(gym.Env):
         return self.past_values(self.current_step), reward, done, info
 
     def buy(self, coin_value):
-        print(" - Buy")
+        # print(" - Buy")
         # print(f"Buying at {coin_value}. Current USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
         self.holdings_coin += self.trade_cost * (self.holdings_usd / coin_value)
         self.holdings_usd = 0
         #print(f"Bought at {coin_value}. New USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
 
     def sell(self, coin_value):
-        print(" - Sell")
+        # print(" - Sell")
         #print(f"Selling at {coin_value}. Current USD: {self.holdings_usd}, Coin: {self.holdings_coin}")
         self.holdings_usd += self.trade_cost * self.holdings_coin * coin_value
         self.holdings_coin = 0
@@ -88,21 +110,19 @@ class SineWaveEnv(gym.Env):
         self.holdings_usd = 100
         self.holdings_coin = 0
 
-        self.current_step = np.random.uniform(0, 2 * np.pi)
+        # self.current_step = np.random.uniform(0, 2 * np.pi)
+        self.current_step = random.randrange(0,len(coin_values) - SEQUENCE_LENGTH_MINUTES - EPISODE_LENGTH_MINUTES)
         return self.past_values(self.current_step)
 
     def past_values(self, init_step):
-        history = np.array([])
-        for i in reversed(range(self.history_size)):
-            sinval = np.sin(init_step - self.step_size * i) + 1
-            history = np.append(history, sinval)
-        return history
+        idx = list(range(init_step, init_step + SEQUENCE_LENGTH_MINUTES, SEQUENCE_INCREMENT_MINUTES))
+        return np.array(coin_values[idx])
 
 def build_actor(state_shape, action_space):
     model = tf.keras.Sequential([
         layers.Input(shape=state_shape),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(128, activation='relu'),
+        layers.Dense(512, activation='relu'),
+        layers.Dense(512, activation='relu'),
         layers.Dense(action_space, activation='softmax')
     ])
     return model
@@ -110,8 +130,8 @@ def build_actor(state_shape, action_space):
 def build_critic(state_shape):
     model = tf.keras.Sequential([
         layers.Input(shape=state_shape),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(128, activation='relu'),
+        layers.Dense(512, activation='relu'),
+        layers.Dense(512, activation='relu'),
         layers.Dense(1)
     ])
     return model
@@ -119,8 +139,8 @@ def build_critic(state_shape):
 # Assuming your state is a sequence of states, update the shape accordingly
 # For example, if you consider the last 5 states, the shape would be (5, 3)
 with tf.device('/GPU:0'):
-    actor = build_actor(state_shape=(10,), action_space=3)
-    critic = build_critic(state_shape=(10,))
+    actor = build_actor(state_shape=(EPISODE_LENGTH_MINUTES,), action_space=3)
+    critic = build_critic(state_shape=(EPISODE_LENGTH_MINUTES,))
 
 import tensorflow as tf
 
@@ -133,9 +153,8 @@ critic_optimizer = tf.keras.optimizers.Adam(learning_rate)
 # Initialize the environment
 env = SineWaveEnv()
 
-longest_run = 20
-
 gamma = 0.99  # Discount factor
+last_episode_reward = None
 
 for episode in range(num_episodes):
     actions = []
@@ -149,9 +168,12 @@ for episode in range(num_episodes):
         critic_value = critic(np.array([state]), training=True)
 
         action = np.random.choice(3, p=np.squeeze(action_probs))
+        if random.random() > 0.95 and last_episode_reward is not None and last_episode_reward > -10 and last_episode_reward < 10:
+            action = random.randint(0,3)
+
         actions.append(action)
 
-        next_state, reward, done, info = env.step(action, longest_run)
+        next_state, reward, done, info = env.step(action, EPISODE_LENGTH_MINUTES)
 
         # Store states, actions, and rewards
         episode_states.append(state)
@@ -194,5 +216,7 @@ for episode in range(num_episodes):
     actor_optimizer.apply_gradients(zip(actor_grads, actor.trainable_variables))
     critic_optimizer.apply_gradients(zip(critic_grads, critic.trainable_variables))
 
-    print(f"Episode: {episode + 1}, Reward: {episode_reward}, Steps: {info['step_count']}, Longest Run: {longest_run}, Actor Loss: {actor_loss}, Critic Loss: {critic_loss}")
+    last_episode_reward = episode_reward
+
+    print(f"Episode: {episode + 1}, Reward: {episode_reward}, Steps: {info['step_count']}, Actor Loss: {actor_loss}, Critic Loss: {critic_loss}")
     print("".join(map(str,actions)))
