@@ -14,6 +14,7 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler
 #   - dense1: known global min/max )
 #   OUTPUT:
 #   - next day min/max
+# Embedding vector
 
 BAD_ROW_ANNOTATION = 999999
 MAX_TIMESTAMP_DELTA = 300
