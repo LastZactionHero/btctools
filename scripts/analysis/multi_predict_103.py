@@ -18,6 +18,7 @@ from sklearn.preprocessing import MinMaxScaler, RobustScaler
 
 BAD_ROW_ANNOTATION = 999999
 MAX_TIMESTAMP_DELTA = 300
+SEQUENCE_MODULO = 100
 
 # Load CSV
 file_path = sys.argv[1]
@@ -67,7 +68,7 @@ data_delta_annotated_scaled = delta_scaler.transform(data_delta_annotated)
 price_scaler = MinMaxScaler(feature_range=(0, 1))
 data_price_filtered_scaled = price_scaler.fit_transform(np.concatenate((np.zeros((1, 253)), data_price_filtered), axis=0))
 data_price_filtered_scaled = data_price_filtered_scaled[1:]
-data_price_annotated_scaled = price_scaler.transform(np.concatenate((np.zeros((1, 253)), data_price_filtered), axis=0))
+data_price_annotated_scaled = price_scaler.transform(np.concatenate((np.zeros((1, 253)), data_price_annotated), axis=0))
 data_price_annotated_scaled = data_price_annotated_scaled[1:]
 
 # Create Sequences
@@ -78,22 +79,26 @@ sequences_delta_last_day_by_minute = []
 sequences_price_last_day_by_minute = []
 sequences_next_days_extremes = []
 
-MAX_SEQUENCE_LENGTH_MINUTES = 5 * 24 * 60
+MAX_LOOKBEHIND_MINUTES = 5 * 24 * 60
 MAX_LOOKAHEAD_MINUTES = 24 * 60
-for idx in range(MAX_SEQUENCE_LENGTH_MINUTES, (len(data_delta_annotated_scaled) - MAX_LOOKAHEAD_MINUTES) - 1):
-    # TODO: Filter bad sequences
+
+for idx in range(MAX_LOOKBEHIND_MINUTES, (len(data_delta_annotated_scaled) - MAX_LOOKAHEAD_MINUTES) - 1):
+    # Filter bad sequences
+    for bad_row in bad_rows:
+        if idx < (bad_row + MAX_LOOKBEHIND_MINUTES + 1) and idx > (bad_row - MAX_LOOKAHEAD_MINUTES - 1):
+            continue
 
     if idx % 1000 == 0:
         print(f"Sequence: {idx}/{len(data_delta_annotated_scaled)}")
         
-    if idx % 100 != 0:
+    if idx % SEQUENCE_MODULO != 0:
         continue
 
-    last_5_days_by_hour = list(range(idx - 5 * 24 * 60, idx, 60))
+    last_5_days_by_hour = list(range(idx - MAX_LOOKBEHIND_MINUTES, idx, 60))
     last_5_days_by_hour.append(idx)
     sequence_delta_last_5_days_by_hour = data_delta_annotated_scaled[last_5_days_by_hour]
 
-    last_day_by_5_minutes = list(range(idx - 24 * 60, idx, 5))
+    last_day_by_5_minutes = list(range(idx - MAX_LOOKAHEAD_MINUTES, idx, 5))
     last_day_by_5_minutes.append(idx)
     sequence_delta_last_day_by_minute = data_delta_annotated_scaled[last_day_by_5_minutes]
     sequence_price_last_day_by_minute = data_price_annotated_scaled[last_day_by_5_minutes]
@@ -101,7 +106,7 @@ for idx in range(MAX_SEQUENCE_LENGTH_MINUTES, (len(data_delta_annotated_scaled) 
     # TODO: Known Global Min/Max
 
     # Max/Max Next Day Prices
-    price_next_day_by_minute = data_price_annotated_scaled[idx:idx+1440]
+    price_next_day_by_minute = data_price_annotated_scaled[idx:idx+MAX_LOOKAHEAD_MINUTES]
     max_prices = np.max(price_next_day_by_minute, axis=0).reshape(1, -1)
     min_prices = np.min(price_next_day_by_minute, axis=0).reshape(1, -1)
     combined_prices = np.concatenate((max_prices, min_prices), axis=0)
