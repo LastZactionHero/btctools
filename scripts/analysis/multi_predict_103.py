@@ -4,7 +4,6 @@ import sys
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 
 # NEXT STEPS
-# - Skipping bad rows in sequence setup
 # - Known global min/max
 # - Build/Train the model
 #   INPUT:
