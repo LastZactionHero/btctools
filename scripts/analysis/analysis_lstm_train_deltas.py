@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential, load_model
+from keras.optimizers import Adam
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 import tensorflow as tf
 
@@ -15,12 +16,11 @@ tf.get_logger().setLevel('ERROR')
 DAY_SEQUENCE_LENGTH = 24 * 60
 PREVIOUS_DAYS_LENGTH = 5
 PREDICTION_MINUTES = 120
-SEQUENCE_MODULO = 30
+SEQUENCE_MODULO = 100
 
 # Load data
 data = pd.read_csv(sys.argv[1])
 prediction_csv_file = sys.argv[2]
-output_file = sys.argv[3]
 
 # Prepare Delta Data Set
 data = data.drop('timestamp', axis=1)
@@ -90,7 +90,8 @@ dense_layer = Dense(units=y.shape[1])(combined)
 model = Model(inputs=[input_minute, input_hour], outputs=dense_layer)
 
 # # Compile the model
-model.compile(optimizer='adam', loss='mean_squared_error')
+optimizer = Adam(clipnorm=1.0)  # You can adjust the clipnorm value
+model.compile(optimizer=optimizer, loss='mean_squared_error')
 
 early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1)
 

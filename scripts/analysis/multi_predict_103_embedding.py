@@ -10,7 +10,7 @@ from tensorflow.keras.models import Model
 
 BAD_ROW_ANNOTATION = 999999
 MAX_TIMESTAMP_DELTA = 300
-SEQUENCE_MODULO = 5
+SEQUENCE_MODULO = 10
 EPOCHS = 1000
 
 # Load CSV
@@ -91,7 +91,7 @@ for idx in range(MAX_LOOKBEHIND_MINUTES, (len(data_delta_annotated_scaled) - MAX
 
 
 input_shape = sequences_delta_last_5_days_hour_by_hour[0].shape
-embedding_size = 20  # Size of the embedding vector
+embedding_size = 40  # Size of the embedding vector
 
 inputs = Input(shape=input_shape)
 
@@ -125,7 +125,8 @@ history = model.fit(sequences_train, sequences_train, epochs=EPOCHS, batch_size=
 encoder_model = Model(inputs=inputs, outputs=encoder_output)
 encoder_model.save('./models/multi_predict_103_encoder.h5')
 
-predict = sequences[-2:-1]
-px = encoder_model.predict(predict)
+real = sequences[-2:-1]
+predicted = model.predict(real)
 
 import pdb; pdb.set_trace()
+
