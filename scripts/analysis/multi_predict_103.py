@@ -17,8 +17,8 @@ BAD_ROW_ANNOTATION = 999999
 MAX_TIMESTAMP_DELTA = 300
 DAY_SEQUENCE_LENGTH = 24 * 60
 PREVIOUS_DAYS_LENGTH = 5
-PREDICTION_MINUTES = 120
-SEQUENCE_MODULO = 50
+PREDICTION_MINUTES = 24 * 60 #120
+SEQUENCE_MODULO = 100
 
 # Load data
 data = pd.read_csv(sys.argv[1])
@@ -70,10 +70,16 @@ def create_sequences(delta, price):
         index_array = np.flip((i - np.arange(0, PREVIOUS_DAYS_LENGTH * 24 * 60, 60)))
         hourly_sequences.append(price[index_array])
 
+        price_next_day_by_minute = price[i:i + PREDICTION_MINUTES]
+        next_day_max_prices = np.max(price_next_day_by_minute, axis=0)
+        next_day_min_prices = np.min(price_next_day_by_minute, axis=0)
+
         output.append(np.concatenate((
-            price[i + 60],
-            price[i + 120])
-        ))
+            next_day_min_prices,
+            next_day_max_prices
+            # price[i + 60],
+            # price[i + 120])
+        )))
     return np.array(sequences), np.array(hourly_sequences), np.array(output)
 
 X_one_day, X_hours, y = create_sequences(delta_scaled, price_scaled)
@@ -130,7 +136,7 @@ delta_unscaled = (unscaled - latest_unscaled) / latest_unscaled
 df = pd.DataFrame(
     np.vstack([delta_unscaled[1], latest_unscaled[-1], unscaled[0], unscaled[1]]),
     columns=data.columns,
-    index=['delta', 'latest', 'prediction_60', 'prediction_120']).round(6).T.sort_values('delta', ascending=False)
+    index=['delta', 'latest', 'next_day_low', 'next_day_high']).round(6).T.sort_values('delta', ascending=False)
 df.to_csv(prediction_csv_file, float_format='%.6f')
 
 # import numpy as np
