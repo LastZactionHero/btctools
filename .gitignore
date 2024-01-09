@@ -1,3 +1,6 @@
+.env
+data/*.csv
+
 # macOS system files that can be safely ignored
 .DS_Store
 
@@ -42,4 +45,3 @@ __pycache__/
 # Virtual environment
 venv/
 
-data/*.csv
