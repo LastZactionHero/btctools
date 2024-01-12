@@ -62,8 +62,8 @@ def adjust_stoploss(order, exchange_rate_usd):
     prev_value = order['stop_loss_percent']
     next_value = order['stop_loss_percent']
 
-    if exchange_rate_usd >= order['purchase_price'] * 1.01:
-        next_value = 0.98
+    # if exchange_rate_usd >= order['purchase_price'] * 1.01:
+    #     next_value = 0.94
 
     # if exchange_rate_usd >= order['purchase_price'] * 1.02:
     #     next_value = 1.0

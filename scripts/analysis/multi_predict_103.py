@@ -120,7 +120,7 @@ model.compile(optimizer=optimizer, loss='mean_squared_error')
 early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1)
 
 # Train the model
-model.fit([X_one_day, X_hours], y, epochs=20, batch_size=32, validation_data=(
+model.fit([X_one_day, X_hours], y, epochs=100, batch_size=32, validation_data=(
     [X_one_day_test, X_hour_test], y_test), callbacks=[early_stopping])
 # model.save(output_file)
 
