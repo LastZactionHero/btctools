@@ -5,7 +5,6 @@ import sys
 import time
 import os
 import datetime
-from dotenv import load_dotenv
 
 # Constants
 CSV_FIELDNAMES = ['STATUS','ACTION','COINBASE_PRODUCT_ID','QUANTITY','PURCHASE_PRICE','STOP_LOSS_PERCENT','PROFIT_PERCENT']

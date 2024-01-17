@@ -20,3 +20,5 @@ EMBEDDING:
 - What are the patterns leading up to the "profit/loss" series? e.g. 1,1,4,2,1,*8* 
 
 Encoder and cluster by trend correlation?
+
+108.61.193.193

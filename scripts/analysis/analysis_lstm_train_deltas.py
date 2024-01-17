@@ -17,14 +17,19 @@ DAY_SEQUENCE_LENGTH = 24 * 60
 PREVIOUS_DAYS_LENGTH = 5
 PREDICTION_MINUTES = 120
 SEQUENCE_MODULO = 100
+TRAIN_MODEL = False
 
 # Load data
 data = pd.read_csv(sys.argv[1])
 prediction_csv_file = sys.argv[2]
+model_file = sys.argv[3]
 
 # Prepare Delta Data Set
 data = data.drop('timestamp', axis=1)
 delta = (data[1:].values - data[:-1].values) / data[:-1].values
+
+delta = np.clip(delta, 0 - 3 * np.std(delta), 3 * np.std(delta))
+
 delta_scaler = RobustScaler(with_centering=True, with_scaling=True)
 delta_scaled = delta_scaler.fit_transform(delta)
 
@@ -86,19 +91,23 @@ combined = concatenate([minute_output, hour_output])
 # # Add a Dense layer for final prediction
 dense_layer = Dense(units=y.shape[1])(combined)
 
-# # Create the model
-model = Model(inputs=[input_minute, input_hour], outputs=dense_layer)
+model = None
+if TRAIN_MODEL == True:
+    # # Create the model
+    model = Model(inputs=[input_minute, input_hour], outputs=dense_layer)
 
-# # Compile the model
-optimizer = Adam(clipnorm=1.0)  # You can adjust the clipnorm value
-model.compile(optimizer=optimizer, loss='mean_squared_error')
+    # # Compile the model
+    optimizer = Adam(clipnorm=1.0)  # You can adjust the clipnorm value
+    model.compile(optimizer=optimizer, loss='mean_squared_error')
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1)
 
-# Train the model
-model.fit([X_one_day, X_hours], y, epochs=20, batch_size=32, validation_data=(
-    [X_one_day_test, X_hour_test], y_test), callbacks=[early_stopping])
-# model.save(output_file)
+    # Train the model
+    model.fit([X_one_day, X_hours], y, epochs=50, batch_size=32, validation_data=(
+        [X_one_day_test, X_hour_test], y_test), callbacks=[early_stopping])
+    model.save(model_file)
+else:
+   model = load_model(model_file)
 
 latest_delta_sequence = delta_scaled[(-DAY_SEQUENCE_LENGTH-1):-1]
 
