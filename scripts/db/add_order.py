@@ -1,3 +1,4 @@
+# python3 ./scripts/db/add_order.py BTC-USDC 1 10.0
 import argparse
 from datetime import datetime
 from models import engine, Order, sessionmaker  # Import necessary components 
