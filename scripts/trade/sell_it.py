@@ -5,6 +5,7 @@ import sys
 import time
 import os
 import datetime
+from dotenv import load_dotenv
 
 # Constants
 CSV_FIELDNAMES = ['STATUS','ACTION','COINBASE_PRODUCT_ID','QUANTITY','PURCHASE_PRICE','STOP_LOSS_PERCENT','PROFIT_PERCENT']
@@ -61,21 +62,10 @@ def adjust_stoploss(order, exchange_rate_usd):
     prev_value = order['stop_loss_percent']
     next_value = order['stop_loss_percent']
 
-    # if exchange_rate_usd >= order['purchase_price'] * 1.01:
-    #     next_value = 0.94
-
-    # if exchange_rate_usd >= order['purchase_price'] * 1.02:
-    #     next_value = 1.0
-
     if exchange_rate_usd >= order['purchase_price'] * 1.025:
         next_value = ((exchange_rate_usd - order['purchase_price']) / order['purchase_price']) + 1 - 0.005
 
     return max(next_value, prev_value)
-    # if exchange_rate_usd <= order['purchase_price'] * RAISE_STOPLOSS_THRESHOLD:
-    #     return order['stop_loss_percent']
-
-    # adjusted = (((exchange_rate_usd - order['purchase_price']) / order['purchase_price'] + 1) * RAISE_STOPLOSS_VALUE)
-    # return max(order['stop_loss_percent'], adjusted)
 
 def main(csv_filename):
     while True:
