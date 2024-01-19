@@ -46,6 +46,7 @@ try:
 except Exception as e:
     logging.error("Failed to initialize the Coinbase Advanced Trade API Client: %s", e)
     sys.exit(1)
+broker = SimulatedBroker(client)
 
 def load_orders_from_database():
     try:

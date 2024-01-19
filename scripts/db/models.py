@@ -23,3 +23,14 @@ class Order(Base):
     stop_loss_percent = Column(Float)
     profit_percent = Column(Float)
     created_at = Column(DateTime, default=datetime.now)
+
+class SimulatedHolding(Base):
+    __tablename__ = 'simulated_holding'
+
+    id = Column(Integer, primary_key=True) 
+    created_at = Column(DateTime, default=datetime.now)
+    status = Column(String, default="CURRENT")
+    order_id = Column(String)
+    coinbase_product_id = Column(String)
+    quantity = Column(Float)
+    purchase_price = Column(Float)
