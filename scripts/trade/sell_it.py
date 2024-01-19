@@ -5,10 +5,11 @@ import time
 import os
 import datetime
 import logging
-from logging.handlers import RotatingFileHandler
+import logging_setup
 from dotenv import load_dotenv
 from coinbaseadvanced.client import CoinbaseAdvancedTradeAPIClient, Side
 from db.models import engine, Order, sessionmaker  
+from print_utils import portfolio_table
 from simulated_broker import SimulatedBroker
 
 # Constants
@@ -19,23 +20,7 @@ TIME_SLEEP_SECONDS = 10
 RAISE_STOPLOSS_THRESHOLD = 1.025
 SELL_STOPLOSS_FLOOR = 0.005
 
-# Configure logging
-log_dir = './logs'
-os.makedirs(log_dir, exist_ok=True)
-
-# Define the maximum log file size (in bytes)
-max_log_file_size = 10 * 1024 * 1024  # 10 MB
-
-# Create a RotatingFileHandler that truncates the log file at max_log_file_size
-log_handler = RotatingFileHandler(os.path.join(log_dir, 'sell.log'), maxBytes=max_log_file_size, backupCount=1)
-log_handler.setLevel(logging.INFO)
-
-# Create a logging formatter
-log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-log_handler.setFormatter(log_formatter)
-
-# Create the root logger and add the RotatingFileHandler
-logging.basicConfig(level=logging.INFO, handlers=[log_handler])
+logging_setup.init_logging("sell.log")
 
 # Load environment variables
 load_dotenv()
@@ -104,20 +89,10 @@ def create_and_execute_sell_order(order, exchange_rate_usd, client_order_id):
             base_size=order.quantity)
         # TODO: Error handling
         update_order_status(order.id, "SOLD")
+        
         logging.info("Sell order executed successfully for order ID %s", order.id)
-        # coinbase_order = client.create_limit_order(
-        #     client_order_id=client_order_id,
-        #     product_id=order.coinbase_product_id,
-        #     side=Side.SELL,
-        #     limit_price=exchange_rate_usd,
-        #     base_size=order.quantity)
-        # if coinbase_order.order_error:
-        #     update_order_status(order.id, "SALE_ERROR")
-        #     error_message = coinbase_order.order_error.message if coinbase_order.order_error.message else "Unknown error"
-        #     logging.error("Failed to create and execute sell order for order ID %s: %s", order.id, error_message)
-        # else:
-        #     update_order_status(order.id, "SOLD")
-        #     logging.info("Sell order executed successfully for order ID %s", order.id)
+        logging.info(portfolio_table(broker.portfolio()))
+        logging.info(portfolio_table(broker.holdings_usdc()))
     except Exception as e:
         logging.error("An error occurred while creating and executing sell order for order ID %s: %s", order.id, e)
 
