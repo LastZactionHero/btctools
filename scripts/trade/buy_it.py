@@ -182,7 +182,7 @@ def gptquery(prompt):
   url = 'https://api.openai.com/v1/chat/completions'
 
   # Set your OpenAI API key
-  api_key = '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'
+
 
   # Send a POST request to the API
   response = requests.post(
