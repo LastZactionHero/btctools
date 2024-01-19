@@ -9,6 +9,7 @@ from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
 from coinbaseadvanced.client import CoinbaseAdvancedTradeAPIClient, Side
 from db.models import engine, Order, sessionmaker  
+from simulated_broker import SimulatedBroker
 
 # Constants
 CSV_FIELDNAMES = ['STATUS','ACTION','COINBASE_PRODUCT_ID','QUANTITY','PURCHASE_PRICE','STOP_LOSS_PERCENT','PROFIT_PERCENT']
@@ -83,9 +84,9 @@ def update_order_stoploss(order, new_stoploss_value):
         order_to_update = session.get(Order, order.id)  # Get the Order from the database
 
         if order_to_update:
+            logging.info("Updating stop-loss Order with ID %s to %f.", order.id, new_stoploss_value)
             order_to_update.stop_loss_percent = new_stoploss_value   # Update the stop-loss
             session.commit()    # Commit the change to the database
-            logging.info("Stop-loss for order ID %s updated to %s", order.id, new_stoploss_value)
         else:
             # Handle the case where the order is not found (log a warning)
             logging.warning("Order with ID %s not found for stop-loss update.", order.id)
@@ -96,20 +97,27 @@ def update_order_stoploss(order, new_stoploss_value):
 
 def create_and_execute_sell_order(order, exchange_rate_usd, client_order_id):
     try:
-        coinbase_order = client.create_limit_order(
+        broker.sell(
             client_order_id=client_order_id,
             product_id=order.coinbase_product_id,
-            side=Side.SELL,
             limit_price=exchange_rate_usd,
             base_size=order.quantity)
-
-        if coinbase_order.order_error:
-            update_order_status(order.id, "SALE_ERROR")
-            error_message = coinbase_order.order_error.message if coinbase_order.order_error.message else "Unknown error"
-            logging.error("Failed to create and execute sell order for order ID %s: %s", order.id, error_message)
-        else:
-            update_order_status(order.id, "SOLD")
-            logging.info("Sell order executed successfully for order ID %s", order.id)
+        # TODO: Error handling
+        update_order_status(order.id, "SOLD")
+        logging.info("Sell order executed successfully for order ID %s", order.id)
+        # coinbase_order = client.create_limit_order(
+        #     client_order_id=client_order_id,
+        #     product_id=order.coinbase_product_id,
+        #     side=Side.SELL,
+        #     limit_price=exchange_rate_usd,
+        #     base_size=order.quantity)
+        # if coinbase_order.order_error:
+        #     update_order_status(order.id, "SALE_ERROR")
+        #     error_message = coinbase_order.order_error.message if coinbase_order.order_error.message else "Unknown error"
+        #     logging.error("Failed to create and execute sell order for order ID %s: %s", order.id, error_message)
+        # else:
+        #     update_order_status(order.id, "SOLD")
+        #     logging.info("Sell order executed successfully for order ID %s", order.id)
     except Exception as e:
         logging.error("An error occurred while creating and executing sell order for order ID %s: %s", order.id, e)
 
@@ -144,45 +152,23 @@ def adjust_stoploss(order, exchange_rate_usd):
 
     return max(next_value, prev_value)
 
-def create_and_execute_sell_order(order, exchange_rate_usd, client_order_id):
-    try:
-        coinbase_order = client.create_limit_order(
-            client_order_id=client_order_id,
-            product_id=order.coinbase_product_id,
-            side=Side.SELL,
-            limit_price=exchange_rate_usd,
-            base_size=order.quantity)
-    
-        if coinbase_order.order_error:
-            update_order_status(order.id, "SALE_ERROR")
-            error_message = coinbase_order.order_error.message if coinbase_order.order_error.message else "Unknown error"
-            logging.error("Failed to create and execute sell order for order ID %s: %s", order.id, error_message)
-        else:
-            update_order_status(order.id, "SOLD")
-            logging.info("Sell order executed successfully for order ID %s", order.id)
-    except Exception as e:
-        logging.error("An error occurred while creating and executing sell order for order ID %s: %s", order.id, e)
-
-
 def main():
     while True:
         orders = load_orders_from_database()
 
         for order in orders:
-            try:
-                best_bid_ask = client.get_best_bid_ask([order.coinbase_product_id])
-                exchange_rate_usd = float(best_bid_ask.pricebooks[0].bids[0].price)
+            best_bid = broker.get_best_bids([order.coinbase_product_id])[order.coinbase_product_id]
+            exchange_rate_usd = float(best_bid)
 
-                client_order_id = build_client_order_id(order)
-                print_order_details(order, exchange_rate_usd, client_order_id)
+            client_order_id = build_client_order_id(order)
+            print_order_details(order, exchange_rate_usd, client_order_id)
 
-                if should_trigger_order(order, exchange_rate_usd):
-                    create_and_execute_sell_order(order, exchange_rate_usd, client_order_id)
-                else:
-                    new_stoploss_value = adjust_stoploss(order, exchange_rate_usd)
+            if should_trigger_order(order, exchange_rate_usd):
+                create_and_execute_sell_order(order, exchange_rate_usd, client_order_id)
+            else:
+                new_stoploss_value = adjust_stoploss(order, exchange_rate_usd)
+                if new_stoploss_value != order.stop_loss_percent:
                     update_order_stoploss(order, new_stoploss_value)
-            except Exception as e:
-                logging.error("An error occurred: %s", e)
 
         time.sleep(TIME_SLEEP_SECONDS)
 

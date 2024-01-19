@@ -14,6 +14,6 @@ broker = SimulatedBroker(client)
 broker.reset()
 
 broker.buy("113", "USDC-USDC", 1.0, 10000)
-broker.buy(client_order_id="111", product_id="BTC-USDC",
-           limit_price=100.0, base_size=20.0)
-broker.buy("111", "ETH-USDC", 100, 20)
+broker.buy(client_order_id="111", product_id="BTC-USDC", limit_price=41000.0, base_size=10)
+broker.buy(client_order_id="111", product_id="ETH-USDC", limit_price=2460.0, base_size=10.0)
+broker.buy(client_order_id="111", product_id="PNG-USDC", limit_price=0.00001, base_size=10.0)
