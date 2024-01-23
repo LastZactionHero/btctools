@@ -91,8 +91,6 @@ def create_and_execute_sell_order(order, exchange_rate_usd, client_order_id):
         update_order_status(order.id, "SOLD")
         
         logging.info("Sell order executed successfully for order ID %s", order.id)
-        logging.info(portfolio_table(broker.portfolio()))
-        logging.info(portfolio_table(broker.holdings_usdc()))
     except Exception as e:
         logging.error("An error occurred while creating and executing sell order for order ID %s: %s", order.id, e)
 
@@ -128,24 +126,36 @@ def adjust_stoploss(order, exchange_rate_usd):
     return max(next_value, prev_value)
 
 def main():
+    iter = 0
     while True:
-        orders = load_orders_from_database()
+        try:
+            orders = load_orders_from_database()
+            product_ids = set(map(lambda o: o.coinbase_product_id, orders))
+            if(len(product_ids) == 0):
+                continue
+            best_bids = broker.get_best_bids(product_ids)
 
-        for order in orders:
-            best_bid = broker.get_best_bids([order.coinbase_product_id])[order.coinbase_product_id]
-            exchange_rate_usd = float(best_bid)
+            for order in orders:
+                exchange_rate_usd = float(best_bids[order.coinbase_product_id])
 
-            client_order_id = build_client_order_id(order)
-            print_order_details(order, exchange_rate_usd, client_order_id)
+                client_order_id = build_client_order_id(order)
+                print_order_details(order, exchange_rate_usd, client_order_id)
 
-            if should_trigger_order(order, exchange_rate_usd):
-                create_and_execute_sell_order(order, exchange_rate_usd, client_order_id)
-            else:
-                new_stoploss_value = adjust_stoploss(order, exchange_rate_usd)
-                if new_stoploss_value != order.stop_loss_percent:
-                    update_order_stoploss(order, new_stoploss_value)
+                if should_trigger_order(order, exchange_rate_usd):
+                    create_and_execute_sell_order(order, exchange_rate_usd, client_order_id)
+                else:
+                    new_stoploss_value = adjust_stoploss(order, exchange_rate_usd)
+                    if new_stoploss_value != order.stop_loss_percent:
+                        update_order_stoploss(order, new_stoploss_value)
+            
+            if iter % 10 == 0:
+                logging.info(f"\n{portfolio_table(broker.portfolio())}")
+                logging.info(f"\n{portfolio_table(broker.holdings_usdc())}")
+            iter += 1
 
-        time.sleep(TIME_SLEEP_SECONDS)
-
+            time.sleep(TIME_SLEEP_SECONDS)
+        except Exception as  e:
+            print(f"something went wrong {e}")
+            # logger.error("Something went wrong")
 if __name__ == "__main__":
     main()

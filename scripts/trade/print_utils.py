@@ -12,6 +12,6 @@ def portfolio_table(portfolio):
             holding.currency,
             holding.balance_coin,
             "{:.2f}".format(holding.balance_usd),
-            "{:.2f}%".format(holding.allocation)
+            "{:.2f}%".format(holding.allocation * 100.0)
         ])
     return table

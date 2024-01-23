@@ -20,7 +20,7 @@ TIME_SLEEP_SECONDS = 5 * 60
 ASK_PRICE_ADJ = 1.00
 PRIOR_MINUTES_TO_REVIEW = 14 * 24 * 60  # 14 days
 POSITIVE_PREDICTION_MIN_DELTA = 0.09
-MIN_POSITIVE_PREDICTIONS = 0
+MIN_POSITIVE_PREDICTIONS = 4
 CSV_DIR = "./data"
 EXCHANGE_RATE_CSV_FILENAME = "./data/crypto_exchange_rates.csv"
 PREDICTIONS_CSV_FILENAME = "./data/lstm_predictions.csv"
@@ -145,7 +145,7 @@ def build_purchase_decision_prompt(predictions, portfolio, balance_usdc):
     prompt += "PREDICTIONS:\n"
     prompt += str(predictions_table(predictions)) + "\n"
     prompt += "Anything shown here is appropriate to buy.\n\n"
-    prompt += "- Symbol: The Coinbase ticker symbol"
+    prompt += "- Symbol: The Coinbase ticker symbol\n"
     prompt += "- # 4% Runs: How many times has this coin gone up 4% in the last 14 days. A signal the coin is volitile enough to cover the fees.\n"
     prompt += "- Time Above 4%: In the last two weeks, what percentage of time has the value been over 4%? Prefer values around 50%.\n"
     prompt += "\n"
@@ -233,7 +233,7 @@ def fetch_files():
 
 
 def runit():
-    fetch_files()
+    # fetch_files()
 
     historical_data = pd.read_csv(EXCHANGE_RATE_CSV_FILENAME)
     predictions = pd.read_csv(PREDICTIONS_CSV_FILENAME)
