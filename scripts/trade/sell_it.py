@@ -17,7 +17,7 @@ CSV_FIELDNAMES = ['STATUS','ACTION','COINBASE_PRODUCT_ID','QUANTITY','PURCHASE_P
 FLOAT_FIELDS = ['QUANTITY','PURCHASE_PRICE','STOP_LOSS_PERCENT','PROFIT_PERCENT']
 DATE_FORMAT = "%Y%m%d%H%M%S"
 TIME_SLEEP_SECONDS = 10
-RAISE_STOPLOSS_THRESHOLD = 1.025
+RAISE_STOPLOSS_THRESHOLD = 1.01
 SELL_STOPLOSS_FLOOR = 0.005
 
 logging_setup.init_logging("sell.log")
@@ -84,6 +84,7 @@ def create_and_execute_sell_order(order, exchange_rate_usd, client_order_id):
     try:
         broker.sell(
             client_order_id=client_order_id,
+            buy_order_id=order.order_id,
             product_id=order.coinbase_product_id,
             limit_price=exchange_rate_usd,
             base_size=order.quantity)
@@ -133,8 +134,8 @@ def main():
             product_ids = set(map(lambda o: o.coinbase_product_id, orders))
             if(len(product_ids) == 0):
                 continue
+            
             best_bids = broker.get_best_bids(product_ids)
-
             for order in orders:
                 exchange_rate_usd = float(best_bids[order.coinbase_product_id])
 
@@ -148,10 +149,10 @@ def main():
                     if new_stoploss_value != order.stop_loss_percent:
                         update_order_stoploss(order, new_stoploss_value)
             
-            if iter % 10 == 0:
-                logging.info(f"\n{portfolio_table(broker.portfolio())}")
-                logging.info(f"\n{portfolio_table(broker.holdings_usdc())}")
-            iter += 1
+            # if iter % 10 == 0:
+            logging.info(f"\n{portfolio_table(broker.portfolio())}")
+            logging.info(f"\n{portfolio_table(broker.holdings_usdc())}")
+            # iter += 1
 
             time.sleep(TIME_SLEEP_SECONDS)
         except Exception as  e:

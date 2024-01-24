@@ -15,6 +15,7 @@ class Order(Base):
     __tablename__ = 'orders'
 
     id = Column(Integer, primary_key=True) 
+    order_id = Column(String)
     status = Column(String)
     action = Column(String)
     coinbase_product_id = Column(String)

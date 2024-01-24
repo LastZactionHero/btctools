@@ -57,15 +57,14 @@ class SimulatedBroker:
         session.commit()
         session.close()
 
-        return { 'quantity': base_size, 'purchase_price': limit_price }
+        return { 'quantity': base_size, 'purchase_price': limit_price, 'order_id': client_order_id }
 
-    def sell(self, client_order_id, product_id, limit_price, base_size):
+    def sell(self, client_order_id, buy_order_id, product_id, limit_price, base_size):
         Session = sessionmaker(bind=engine)
         session = Session()
 
         holding = session.query(SimulatedHolding) \
-            .filter(SimulatedHolding.coinbase_product_id == product_id) \
-            .filter(SimulatedHolding.quantity == base_size)[0]
+            .filter(SimulatedHolding.order_id == buy_order_id)[0]
         holding.status = 'SOLD'
         
         if product_id != "USDC-USDC":

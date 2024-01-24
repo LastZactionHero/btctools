@@ -14,10 +14,11 @@ def list_orders():
         table.add_row([order.id, order.status, order.action, 
                        order.coinbase_product_id, order.quantity,
                        order.purchase_price, order.stop_loss_percent, 
-                       order.profit_percent, order.created_at])
+                       order.profit_percent, order.created_at]n)
 
     session.close()
     print(table)  # Print the formatted table
 
 if __name__ == "__main__":
     list_orders()
+    list_holdings()

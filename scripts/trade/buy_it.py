@@ -1,6 +1,7 @@
 import datetime
 import logging
 import logging_setup
+import numpy as np
 import os
 import pandas as pd
 import re
@@ -14,26 +15,29 @@ from prettytable import PrettyTable
 from print_utils import portfolio_table
 from simulated_broker import SimulatedBroker
 from db.models import engine, Order, sessionmaker
-
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import MinMaxScaler
 
 TIME_SLEEP_SECONDS = 5 * 60
 ASK_PRICE_ADJ = 1.00
 PRIOR_MINUTES_TO_REVIEW = 14 * 24 * 60  # 14 days
-POSITIVE_PREDICTION_MIN_DELTA = 0.09
-MIN_POSITIVE_PREDICTIONS = 4
+POSITIVE_PREDICTION_MIN_DELTA = 2.0
+MIN_POSITIVE_PREDICTIONS = 2
 CSV_DIR = "./data"
 EXCHANGE_RATE_CSV_FILENAME = "./data/crypto_exchange_rates.csv"
 PREDICTIONS_CSV_FILENAME = "./data/lstm_predictions.csv"
 EXCHANGE_RATE_CSV_URL = "http://144.202.24.235/crypto_exchange_rates.csv"
 PREDICTIONS_CSV_URL = "http://144.202.24.235/lstm_predictions.csv"
+MODEL_FILE = "./models/lstm_series.h5"
 MAX_BUY_AMOUNT_USDC = 100
 MIN_BUY_AMOUNT_USDC = 50
-STOP_LOSS_PERCENT = 0.955
+STOP_LOSS_PERCENT = 0.98
 PROFIT_PERCENT = 1.1
-TIME_ABOVE_MAX_PERCENTAGE = 0.65
-TIME_ABOVE_MIN_PERCENTAGE = 0.35
+TIME_ABOVE_MAX_PERCENTAGE = 0.80
+TIME_ABOVE_MIN_PERCENTAGE = 0.20
 MIN_HIT_COUNT = 2
 HIT_FACTOR = 1.04
+PREDICTION_SEQUENCE_LOOKBEHIND_DAYS = 7
 
 logging_setup.init_logging("buy.log")
 
@@ -82,7 +86,7 @@ def percent_above_hit_percent(coin, data, prior_minutes):
 
 def build_positive_predictions(predictions, historical_data):
     positive_predictions = predictions[
-        predictions["delta"] > POSITIVE_PREDICTION_MIN_DELTA
+        predictions["Max Delta"] > POSITIVE_PREDICTION_MIN_DELTA
     ]
 
     columns = [
@@ -97,8 +101,12 @@ def build_positive_predictions(predictions, historical_data):
 
     for index, prediction in positive_predictions.iterrows():
         coin = prediction.iloc[0]
-        symbol = gecko_coinbase_currency_map[coin]
+        
+        if coin not in gecko_coinbase_currency_map.keys():
+            print(coin)
+            continue
 
+        symbol = gecko_coinbase_currency_map[coin]
         if symbol == "UNSUPPORTED":
             continue
 
@@ -111,16 +119,20 @@ def build_positive_predictions(predictions, historical_data):
             gecko_coinbase_currency_map[coin],
             coin,
             historical_data[coin].values[-1],
-            prediction["delta"],
+            prediction["Max Delta"],
             hit_count,
             percent_above,
         ]
         df.loc[len(df)] = row
 
+    logging.info("Pre-Filter Predictions:")
+    logging.info(df)
     df_filtered = df[(df["Min Above"] >= TIME_ABOVE_MIN_PERCENTAGE) & (df["Min Above"] <= TIME_ABOVE_MAX_PERCENTAGE)]
     df_filtered = df_filtered[(df_filtered["Predicted Delta"] >= POSITIVE_PREDICTION_MIN_DELTA)]
     df_filtered = df_filtered[(df_filtered["Hit Count"] >= MIN_HIT_COUNT)]
     df_filtered = df_filtered.sort_values(by="Min Above")
+    logging.info("Post-Filter Predictions:")
+    logging.info(df_filtered)
     return df_filtered
 
 
@@ -180,11 +192,12 @@ def build_client_order_id(symbol):
     return f"BUY_{symbol}_{timestamp}"
 
 
-def add_order(coinbase_product_id, quantity, purchase_price):
+def add_order(order_id, coinbase_product_id, quantity, purchase_price):
     Session = sessionmaker(bind=engine)
     session = Session()
 
     order = Order(
+        order_id=order_id,
         coinbase_product_id=coinbase_product_id,
         quantity=quantity,
         purchase_price=purchase_price,
@@ -209,10 +222,6 @@ def fetch_files():
         # Remove existing files if they exist
         if os.path.exists(EXCHANGE_RATE_CSV_FILENAME):
             os.remove(EXCHANGE_RATE_CSV_FILENAME)
-
-        if os.path.exists(PREDICTIONS_CSV_FILENAME):
-            os.remove(PREDICTIONS_CSV_FILENAME)
-
         # Download exchange rate CSV
         response = requests.get(EXCHANGE_RATE_CSV_URL)
         response.raise_for_status()
@@ -220,23 +229,58 @@ def fetch_files():
         with open(EXCHANGE_RATE_CSV_FILENAME, "wb") as file:
             file.write(response.content)
 
-        # Download predictions CSV
-        response = requests.get(PREDICTIONS_CSV_URL)
-        response.raise_for_status()
-
-        with open(PREDICTIONS_CSV_FILENAME, "wb") as file:
-            file.write(response.content)
-
         logging.info("CSV files downloaded successfully.")
     except Exception as e:
         logging.error(f"Error: {str(e)}")
 
 
+def build_predictions(data):
+    model = load_model(MODEL_FILE)
+    predict_sequences = data.loc[list(range(len(data) - PREDICTION_SEQUENCE_LOOKBEHIND_DAYS * 60 * 24, len(data-1), 10))]
+
+    coins = []
+    scalers = []
+    predict_sequences_scaled = []
+
+    for i, coin in enumerate(predict_sequences):
+        scaler = MinMaxScaler()
+        ps = scaler.fit_transform(predict_sequences[coin].values.reshape(1,-1).T).flatten()
+        
+        coins.append(coin)
+        scalers.append(scaler)
+        predict_sequences_scaled.append(ps)
+
+    predictions_scaled = model.predict(np.array(predict_sequences_scaled))
+
+    predictions = pd.DataFrame(columns=['Coin', 'Latest', 'Max', 'Max Delta', 'Min', 'Min Delta'])
+    for i, ps in enumerate(predictions_scaled):
+        latest_price = data.iloc[-1,i]
+
+        unscaled = scalers[i].inverse_transform(ps.reshape(1, -1).T).flatten()
+        p_max = unscaled.max()
+        p_min = unscaled.min()
+
+        d_max = round((p_max - latest_price) / latest_price * 100.0, 2)
+        d_min = round((p_min - latest_price) / latest_price * 100.0, 2)
+
+        row = pd.DataFrame({
+            'Coin': [coins[i]],
+            'Latest': latest_price,
+            'Max': [p_max],
+            'Max Delta': [d_max],
+            'Min': [p_min],
+            'Min Delta': [d_min]
+        })
+        predictions = pd.concat([predictions, row])
+
+    predictions = predictions.sort_values(by="Max Delta", ascending=False)
+    return predictions
+
 def runit():
-    # fetch_files()
+    fetch_files()
 
     historical_data = pd.read_csv(EXCHANGE_RATE_CSV_FILENAME)
-    predictions = pd.read_csv(PREDICTIONS_CSV_FILENAME)
+    predictions = build_predictions(historical_data)
 
     positive_predictions = build_positive_predictions(predictions, historical_data)
     logging.info(positive_predictions)
@@ -264,7 +308,8 @@ def runit():
                 limit_price * ASK_PRICE_ADJ,
                 buy_amount_usdc,
             )
-            add_order(product_id, buy_order["quantity"], buy_order["purchase_price"])
+
+            add_order(buy_order['order_id'], product_id, buy_order["quantity"], buy_order["purchase_price"])
 
             logging.info(portfolio_table(broker.portfolio()))
             logging.info(portfolio_table(broker.holdings_usdc()))
@@ -272,6 +317,7 @@ def runit():
             logging.info("Out of money...")
     else:
         logging.info("Nothing good to buy...")
+        
 
 
 while True:
