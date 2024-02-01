@@ -202,7 +202,7 @@ gecko_coinbase_currency_map = {
     'render-token.1': 'RNDR',
     'republik': 'UNSUPPORTED',
     'request-network': 'REQ',
-    'rari-governance-token': 'RARI',
+    'rari-governance-token': 'UNSUPPORTED',
     'iexec-rlc': 'RLC',
     'oasis-network': 'ROSE',
     'rocket-pool': 'RPL',
@@ -213,7 +213,7 @@ gecko_coinbase_currency_map = {
     'status': 'SNT',
     'havven': 'SNX',
     'havven.1': 'SNX',
-    'rai-finance': 'RAI',
+    'rai-finance': 'UNSUPPORTED', #weird
     'solana': 'SOL',
     'space-id': 'UNSUPPORTED',
     'spell-token': 'SPELL',

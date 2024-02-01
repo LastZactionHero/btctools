@@ -1,6 +1,4 @@
-import sys
-sys.path.append("./scripts")
-
+import initpath
 import time
 import os
 import datetime
@@ -17,7 +15,7 @@ CSV_FIELDNAMES = ['STATUS','ACTION','COINBASE_PRODUCT_ID','QUANTITY','PURCHASE_P
 FLOAT_FIELDS = ['QUANTITY','PURCHASE_PRICE','STOP_LOSS_PERCENT','PROFIT_PERCENT']
 DATE_FORMAT = "%Y%m%d%H%M%S"
 TIME_SLEEP_SECONDS = 10
-RAISE_STOPLOSS_THRESHOLD = 1.01
+RAISE_STOPLOSS_THRESHOLD = 1.012
 SELL_STOPLOSS_FLOOR = 0.005
 
 logging_setup.init_logging("sell.log")
@@ -149,10 +147,10 @@ def main():
                     if new_stoploss_value != order.stop_loss_percent:
                         update_order_stoploss(order, new_stoploss_value)
             
-            # if iter % 10 == 0:
-            logging.info(f"\n{portfolio_table(broker.portfolio())}")
-            logging.info(f"\n{portfolio_table(broker.holdings_usdc())}")
-            # iter += 1
+            if iter % 10 == 0:
+                logging.info(f"\n{portfolio_table(broker.portfolio())}")
+                logging.info(f"\n{portfolio_table(broker.holdings_usdc())}")
+            iter += 1
 
             time.sleep(TIME_SLEEP_SECONDS)
         except Exception as  e:

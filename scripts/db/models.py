@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -23,6 +23,13 @@ class Order(Base):
     purchase_price = Column(Float)
     stop_loss_percent = Column(Float)
     profit_percent = Column(Float)
+    predicted_max_delta = Column(Float)
+    predicted_min_delta = Column(Float)
+    num_predictions_over_hit = Column(Integer)
+    max_delta_average=Column(Float)
+    max_delta_std=Column(Float)
+    min_delta_average=Column(Float)
+    min_delta_std=Column(Float)
     created_at = Column(DateTime, default=datetime.now)
 
 class SimulatedHolding(Base):

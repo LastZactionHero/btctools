@@ -20,24 +20,32 @@ from sklearn.preprocessing import MinMaxScaler
 
 TIME_SLEEP_SECONDS = 5 * 60
 ASK_PRICE_ADJ = 1.00
-PRIOR_MINUTES_TO_REVIEW = 14 * 24 * 60  # 14 days
-POSITIVE_PREDICTION_MIN_DELTA = 2.0
-MIN_POSITIVE_PREDICTIONS = 2
+
+POSITIVE_PREDICTION_MIN_DELTA = 1.1
+MIN_POSITIVE_PREDICTIONS = 1
+
 CSV_DIR = "./data"
 EXCHANGE_RATE_CSV_FILENAME = "./data/crypto_exchange_rates.csv"
 PREDICTIONS_CSV_FILENAME = "./data/lstm_predictions.csv"
 EXCHANGE_RATE_CSV_URL = "http://144.202.24.235/crypto_exchange_rates.csv"
 PREDICTIONS_CSV_URL = "http://144.202.24.235/lstm_predictions.csv"
-MODEL_FILE = "./models/lstm_series.h5"
+MODEL_FILE = "./models/lstm_series_240m.h5"
+
 MAX_BUY_AMOUNT_USDC = 100
 MIN_BUY_AMOUNT_USDC = 50
+
 STOP_LOSS_PERCENT = 0.98
 PROFIT_PERCENT = 1.1
-TIME_ABOVE_MAX_PERCENTAGE = 0.80
-TIME_ABOVE_MIN_PERCENTAGE = 0.20
-MIN_HIT_COUNT = 2
-HIT_FACTOR = 1.04
-PREDICTION_SEQUENCE_LOOKBEHIND_DAYS = 7
+
+TIME_ABOVE_MAX_PERCENTAGE = 1.0
+TIME_ABOVE_MIN_PERCENTAGE = 0.0
+
+# MIN_HIT_COUNT = 2
+# HIT_FACTOR = 1.04
+
+SEQUENCE_INTERVAL = 1
+SEQUENCE_LOOKBEHIND_MINUTES = 240 #7 * 24 * 60
+PREDICTION_LOOKAHEAD_MINUTES = 30
 
 logging_setup.init_logging("buy.log")
 
@@ -85,6 +93,7 @@ def percent_above_hit_percent(coin, data, prior_minutes):
 
 
 def build_positive_predictions(predictions, historical_data):
+    logging.info(predictions)
     positive_predictions = predictions[
         predictions["Max Delta"] > POSITIVE_PREDICTION_MIN_DELTA
     ]
@@ -110,27 +119,27 @@ def build_positive_predictions(predictions, historical_data):
         if symbol == "UNSUPPORTED":
             continue
 
-        hit_count = hit_counts_in_range(coin, historical_data, PRIOR_MINUTES_TO_REVIEW)
-        percent_above = percent_above_hit_percent(
-            coin, historical_data, PRIOR_MINUTES_TO_REVIEW
-        )
+        # hit_count = hit_counts_in_range(coin, historical_data, PRIOR_MINUTES_TO_REVIEW)
+        # percent_above = percent_above_hit_percent(
+        #     coin, historical_data, PRIOR_MINUTES_TO_REVIEW
+        # )
 
         row = [
             gecko_coinbase_currency_map[coin],
             coin,
             historical_data[coin].values[-1],
             prediction["Max Delta"],
-            hit_count,
-            percent_above,
+            10,
+            0.5,
         ]
         df.loc[len(df)] = row
 
     logging.info("Pre-Filter Predictions:")
     logging.info(df)
-    df_filtered = df[(df["Min Above"] >= TIME_ABOVE_MIN_PERCENTAGE) & (df["Min Above"] <= TIME_ABOVE_MAX_PERCENTAGE)]
-    df_filtered = df_filtered[(df_filtered["Predicted Delta"] >= POSITIVE_PREDICTION_MIN_DELTA)]
-    df_filtered = df_filtered[(df_filtered["Hit Count"] >= MIN_HIT_COUNT)]
-    df_filtered = df_filtered.sort_values(by="Min Above")
+    # df_filtered = df[(df["Min Above"] >= TIME_ABOVE_MIN_PERCENTAGE) & (df["Min Above"] <= TIME_ABOVE_MAX_PERCENTAGE)]
+    df_filtered = df[(df["Predicted Delta"] >= POSITIVE_PREDICTION_MIN_DELTA)]
+    # df_filtered = df_filtered[(df_filtered["Hit Count"] >= MIN_HIT_COUNT)]
+    # df_filtered = df_filtered.sort_values(by="Min Above")
     logging.info("Post-Filter Predictions:")
     logging.info(df_filtered)
     return df_filtered
@@ -192,9 +201,19 @@ def build_client_order_id(symbol):
     return f"BUY_{symbol}_{timestamp}"
 
 
-def add_order(order_id, coinbase_product_id, quantity, purchase_price):
+def add_order(order_id, coinbase_product_id, quantity, purchase_price, predictions):
     Session = sessionmaker(bind=engine)
     session = Session()
+
+    symbol = coinbase_product_id.split('-')[0]
+    coinbase_gecko_currency_map = {value: key for key, value in gecko_coinbase_currency_map.items()}
+    coin_name = coinbase_gecko_currency_map[symbol]
+    coin_prediction = predictions[predictions['Coin'] == coin_name].iloc[0]
+
+    predictions['Max Delta'].values.mean()
+    predictions['Max Delta'].values.std()
+    predictions['Min Delta'].values.mean()
+    predictions['Min Delta'].values.std()
 
     order = Order(
         order_id=order_id,
@@ -205,6 +224,13 @@ def add_order(order_id, coinbase_product_id, quantity, purchase_price):
         action="SELL",
         stop_loss_percent=STOP_LOSS_PERCENT,
         profit_percent=PROFIT_PERCENT,
+        predicted_max_delta=coin_prediction['Max Delta'],
+        predicted_min_delta=coin_prediction['Min Delta'],
+        num_predictions_over_hit=len(predictions[predictions['Max Delta'] > POSITIVE_PREDICTION_MIN_DELTA]),
+        max_delta_average=predictions['Max Delta'].values.mean(),
+        max_delta_std=predictions['Max Delta'].values.std(),
+        min_delta_average=predictions['Min Delta'].values.mean(),
+        min_delta_std=predictions['Min Delta'].values.std(),
         created_at=datetime.datetime.now(),  # Add the timestamp here
     )
     session.add(order)
@@ -236,7 +262,7 @@ def fetch_files():
 
 def build_predictions(data):
     model = load_model(MODEL_FILE)
-    predict_sequences = data.loc[list(range(len(data) - PREDICTION_SEQUENCE_LOOKBEHIND_DAYS * 60 * 24, len(data-1), 10))]
+    predict_sequences = data.loc[list(range(len(data) - SEQUENCE_LOOKBEHIND_MINUTES, len(data-1), 1))]
 
     coins = []
     scalers = []
@@ -309,7 +335,11 @@ def runit():
                 buy_amount_usdc,
             )
 
-            add_order(buy_order['order_id'], product_id, buy_order["quantity"], buy_order["purchase_price"])
+            add_order(buy_order['order_id'],
+                      product_id,
+                      buy_order["quantity"],
+                      buy_order["purchase_price"],
+                      predictions)
 
             logging.info(portfolio_table(broker.portfolio()))
             logging.info(portfolio_table(broker.holdings_usdc()))

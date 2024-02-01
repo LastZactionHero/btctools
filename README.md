@@ -21,7 +21,7 @@ Experiments:
 
 - exp0: 
 result: ~$910
-hits: 20
+hits: 20, 40%
 misses: 29
 
 01/23/24
@@ -41,5 +41,9 @@ PREDICTION_SEQUENCE_LOOKBEHIND_DAYS = 7
 
 - exp1: 
 01/23/24, 8:40 AM
-raised stop-loss to 0.98
+raised stop-loss to 0.98 
 RAISE_STOPLOSS_THRESHOLD = 1.0d1
+
+-exp1: 240min series, 30 minute estimate
+hits: 15, 48%
+misses: 16
