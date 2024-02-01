@@ -8,16 +8,21 @@ def list_orders():
     orders = session.query(Order).all()
     table = PrettyTable()  # Create a PrettyTable instance 
     table.field_names = ["ID", "Status", "Action", "Coinbase Product ID", 
-                         "Quantity", "Price", "Stop Loss", "Profit Target", 
+                         "Quantity", "Price", "Spread", "Stop Loss", "Target", 
                          "Max D", "Min D",
                          "# Pred > Hit", "Max D Avg",
                          "Max D STD", "Min D Avg", "Min D STD",
                          "Created At"]
 
     for order in orders:
-        table.add_row([order.id, order.status, order.action, 
-                       order.coinbase_product_id, order.quantity,
-                       order.purchase_price, order.stop_loss_percent, 
+        table.add_row([order.id, 
+                       order.status, 
+                       order.action, 
+                       order.coinbase_product_id,
+                       round(order.quantity, 2),
+                       order.purchase_price, 
+                       order.purchase_time_spread_percent,
+                       order.stop_loss_percent, 
                        round(order.profit_percent, 2), 
                        round(order.predicted_max_delta, 2),
                        round(order.predicted_min_delta, 2),

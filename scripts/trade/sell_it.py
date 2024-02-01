@@ -100,7 +100,7 @@ def build_client_order_id(order):
     return f"{order.action}_{symbol}_{timestamp}"
 
 def print_order_details(order, exchange_rate_usd, client_order_id):
-    message = f"{order.coinbase_product_id}\t bid is ${exchange_rate_usd:08.4f}\tpurchase ${order.purchase_price:08.4f}\tdelta {delta_since_purchase(order, exchange_rate_usd):0.2f}%\tlow ${stop_loss_price(order):08.4f}\thigh ${profit_price(order):08.4f}"
+    message = f"{order.coinbase_product_id}\t bid is ${exchange_rate_usd:08.4f}\tpurchase ${order.purchase_price:08.4f}\tspread {order.purchase_time_spread_percent:0.2f}\tdelta {delta_since_purchase(order, exchange_rate_usd):0.2f}%\tlow ${stop_loss_price(order):08.4f}\thigh ${profit_price(order):08.4f}"
     logging.info(message)
 
 def stop_loss_price(order):

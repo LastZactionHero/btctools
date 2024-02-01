@@ -8,6 +8,7 @@ def portfolio_table(portfolio):
     table.align["Balance (Coin)"] = "r"
     table.align["Balance (USD)"] = "r"
     table.align["Allocation"] = "r"
+
     for i, holding in enumerate(portfolio):
         total_usdc += holding.balance_usd
 

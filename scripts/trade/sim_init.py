@@ -13,4 +13,4 @@ client = CoinbaseAdvancedTradeAPIClient.from_cloud_api_keys(
 broker = SimulatedBroker(client)
 broker.reset()
 
-broker.buy("0", "USDC-USDC", 1.0, 1000)
+broker.buy("0", "USDC-USDC", 1.0, 10000)

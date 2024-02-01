@@ -112,7 +112,6 @@ def build_positive_predictions(predictions, historical_data):
         coin = prediction.iloc[0]
         
         if coin not in gecko_coinbase_currency_map.keys():
-            print(coin)
             continue
 
         symbol = gecko_coinbase_currency_map[coin]
@@ -146,14 +145,16 @@ def build_positive_predictions(predictions, historical_data):
 
 
 def predictions_table(predictions):
-    table = PrettyTable(["Symbol", "# 4% Runs", "Time Above 4%"])
+    table = PrettyTable(["Symbol", "Spread %", "# 4% Runs", "Time Above 4%"])
     table.align["Symbol"] = "l"
+    table.align["Spread %"] = "r"
     table.align["# 4% Runs"] = "r"
     table.align["Time Above 4%"] = "r"
     for index, prediction in predictions.iterrows():
         table.add_row(
             [
                 prediction["Symbol"],
+                f"{prediction['Spread']}%",
                 prediction["Hit Count"],
                 "{:.2f}%".format(prediction["Min Above"] * 100.0),
             ]
@@ -165,8 +166,9 @@ def build_purchase_decision_prompt(predictions, portfolio, balance_usdc):
     prompt = ""
     prompt += "PREDICTIONS:\n"
     prompt += str(predictions_table(predictions)) + "\n"
-    prompt += "Anything shown here is appropriate to buy.\n\n"
+    prompt += "Anything shown here is appropriate to buy\n\n"
     prompt += "- Symbol: The Coinbase ticker symbol\n"
+    prompt += "- Spread: Current percentage delta between best bid and ask price. Prefer lower spreads.\n"
     prompt += "- # 4% Runs: How many times has this coin gone up 4% in the last 14 days. A signal the coin is volitile enough to cover the fees.\n"
     prompt += "- Time Above 4%: In the last two weeks, what percentage of time has the value been over 4%? Prefer values around 50%.\n"
     prompt += "\n"
@@ -177,10 +179,9 @@ def build_purchase_decision_prompt(predictions, portfolio, balance_usdc):
     prompt += "You are part of an automated cryptocurrency trading system tasked with evaluating the best currency to buy.\n"
     prompt += "Select a coin from PREDICTIONS to purchase next. Try to:\n"
     prompt += "- Maintain a balanced portfolio, preferring new coins and avoiding allocation over 10%\n"
-    prompt += "- Pick '# 4% Runs' with higher values when possible\n"
-    prompt += "- Pick 'Time Above 4%' near 50% if possible\n"
+    prompt += "- It's okay to decline with symbol NONE if the portfolio will become too unbalanced- more picks will come later.\n"
     prompt += "\n"
-    prompt += "Select ONE symbol for this purchase.\n"
+    prompt += "Select ONE symbol for this purchase, or NONE.\n"
     prompt += "Format your answer as: PURCHASE[SYMBOL]"
     return prompt
 
@@ -201,7 +202,7 @@ def build_client_order_id(symbol):
     return f"BUY_{symbol}_{timestamp}"
 
 
-def add_order(order_id, coinbase_product_id, quantity, purchase_price, predictions):
+def add_order(order_id, coinbase_product_id, quantity, purchase_price, spread, predictions):
     Session = sessionmaker(bind=engine)
     session = Session()
 
@@ -231,6 +232,7 @@ def add_order(order_id, coinbase_product_id, quantity, purchase_price, predictio
         max_delta_std=predictions['Max Delta'].values.std(),
         min_delta_average=predictions['Min Delta'].values.mean(),
         min_delta_std=predictions['Min Delta'].values.std(),
+        purchase_time_spread_percent=spread,
         created_at=datetime.datetime.now(),  # Add the timestamp here
     )
     session.add(order)
@@ -302,13 +304,30 @@ def build_predictions(data):
     predictions = predictions.sort_values(by="Max Delta", ascending=False)
     return predictions
 
+def fetch_current_prices(positive_predictions):
+    symbols = positive_predictions['Symbol'].values
+    product_ids = list(map(lambda s: f"{s}-USDC", symbols))
+                                   
+    bids = broker.get_best_bids(product_ids)
+    asks = broker.get_best_asks(product_ids)
+
+    spreads = []
+    for product_id in product_ids:
+        bid = bids[product_id]
+        ask = asks[product_id]
+        spreads.append(round((ask - bid) / bid * 100, 2))
+    positive_predictions['Spread'] = spreads
+    return positive_predictions
+
 def runit():
     fetch_files()
 
     historical_data = pd.read_csv(EXCHANGE_RATE_CSV_FILENAME)
     predictions = build_predictions(historical_data)
-
+    
     positive_predictions = build_positive_predictions(predictions, historical_data)
+    positive_predictions = fetch_current_prices(positive_predictions)
+
     logging.info(positive_predictions)
     if len(positive_predictions) >= MIN_POSITIVE_PREDICTIONS:
         portfolio = broker.portfolio()
@@ -325,24 +344,30 @@ def runit():
             result = gpt.query(prediction_prompt)
             purchase_decision_symbol = parse_llm_purchase_response(result)
 
-            product_id = f"{purchase_decision_symbol}-USDC"
-            limit_price = broker.get_best_asks([product_id])[product_id]
-            buy_amount_usdc = min(holdings_usdc[0].balance_usd, MAX_BUY_AMOUNT_USDC)
-            buy_order = broker.buy(
-                build_client_order_id(purchase_decision_symbol),
-                product_id,
-                limit_price * ASK_PRICE_ADJ,
-                buy_amount_usdc,
-            )
+            if purchase_decision_symbol == 'NONE':
+                logging.info("Declined with NONE")
+            else:
+                product_id = f"{purchase_decision_symbol}-USDC"
+                limit_price = broker.get_best_asks([product_id])[product_id]
+                buy_amount_usdc = min(holdings_usdc[0].balance_usd, MAX_BUY_AMOUNT_USDC)
+                buy_order = broker.buy(
+                    build_client_order_id(purchase_decision_symbol),
+                    product_id,
+                    limit_price * ASK_PRICE_ADJ,
+                    buy_amount_usdc,
+                )
 
-            add_order(buy_order['order_id'],
-                      product_id,
-                      buy_order["quantity"],
-                      buy_order["purchase_price"],
-                      predictions)
+                spread = positive_predictions[positive_predictions['Symbol'] == purchase_decision_symbol].iloc[0]['Spread']
+                add_order(buy_order['order_id'],
+                        product_id,
+                        buy_order["quantity"],
+                        buy_order["purchase_price"],
+                        spread,
+                        predictions)
 
-            logging.info(portfolio_table(broker.portfolio()))
-            logging.info(portfolio_table(broker.holdings_usdc()))
+                logging.info(portfolio_table(broker.portfolio()))
+                logging.info(portfolio_table(broker.holdings_usdc()))
+            
         else:
             logging.info("Out of money...")
     else:
@@ -351,5 +376,8 @@ def runit():
 
 
 while True:
-    runit()
+    try:
+        runit()
+    except Exception as e:
+        logging.error(e)
     time.sleep(TIME_SLEEP_SECONDS)

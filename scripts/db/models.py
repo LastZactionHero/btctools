@@ -21,6 +21,7 @@ class Order(Base):
     coinbase_product_id = Column(String)
     quantity = Column(Float)
     purchase_price = Column(Float)
+    purchase_time_spread_percent = Column(Float)
     stop_loss_percent = Column(Float)
     profit_percent = Column(Float)
     predicted_max_delta = Column(Float)
