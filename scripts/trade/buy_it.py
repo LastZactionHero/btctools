@@ -1,5 +1,6 @@
 import datetime
 import logging
+import traceback
 import logging_setup
 import numpy as np
 import os
@@ -34,7 +35,7 @@ MODEL_FILE = "./models/lstm_series_240m.h5"
 MAX_BUY_AMOUNT_USDC = 100
 MIN_BUY_AMOUNT_USDC = 50
 
-STOP_LOSS_PERCENT = 0.98
+STOP_LOSS_PERCENT = 0.96
 PROFIT_PERCENT = 1.1
 
 TIME_ABOVE_MAX_PERCENTAGE = 1.0
@@ -326,8 +327,12 @@ def runit():
     predictions = build_predictions(historical_data)
     
     positive_predictions = build_positive_predictions(predictions, historical_data)
+    if len(positive_predictions) == 0:
+        logging.info("No positive predictions")
+        return
     positive_predictions = fetch_current_prices(positive_predictions)
 
+    logging.info('positive predictions')
     logging.info(positive_predictions)
     if len(positive_predictions) >= MIN_POSITIVE_PREDICTIONS:
         portfolio = broker.portfolio()
@@ -338,15 +343,16 @@ def runit():
                 positive_predictions, portfolio, holdings_usdc[0].balance_usd
             )
 
-            logging.info(prediction_prompt)
+            # logging.info(prediction_prompt)
 
-            gpt = GPT(openai_api_key)
-            result = gpt.query(prediction_prompt)
-            purchase_decision_symbol = parse_llm_purchase_response(result)
+            # gpt = GPT(openai_api_key)
+            # result = gpt.query(prediction_prompt)
+            # purchase_decision_symbol = parse_llm_purchase_response(result)
 
-            if purchase_decision_symbol == 'NONE':
-                logging.info("Declined with NONE")
-            else:
+            # if purchase_decision_symbol == 'NONE':
+            #     logging.info("Declined with NONE")
+            # else:
+            for purchase_decision_symbol in positive_predictions['Symbol'].values:
                 product_id = f"{purchase_decision_symbol}-USDC"
                 limit_price = broker.get_best_asks([product_id])[product_id]
                 buy_amount_usdc = min(holdings_usdc[0].balance_usd, MAX_BUY_AMOUNT_USDC)
@@ -380,4 +386,5 @@ while True:
         runit()
     except Exception as e:
         logging.error(e)
+        logging.error(traceback.format_exc())
     time.sleep(TIME_SLEEP_SECONDS)

@@ -5,7 +5,8 @@ def list_orders():
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    orders = session.query(Order).all()
+    # orders = session.query(Order).all()
+    orders = session.query(Order).filter_by(status="OPEN")
     table = PrettyTable()  # Create a PrettyTable instance 
     table.field_names = ["ID", "Status", "Action", "Coinbase Product ID", 
                          "Quantity", "Price", "Spread", "Stop Loss", "Target", 

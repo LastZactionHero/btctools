@@ -135,7 +135,7 @@ gecko_coinbase_currency_map = {
     'livepeer': 'LPT',
     'liquity': 'LQTY',
     'loopring': 'LRC',
-    'liquid-staked-ethereum': 'STETH',
+    'liquid-staked-ethereum': 'UNSUPPORTED',
     'magic': 'MAGIC',
     'decentraland': 'MANA',
     'mask-network': 'MASK',

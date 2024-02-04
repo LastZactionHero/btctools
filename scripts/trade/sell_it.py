@@ -151,7 +151,6 @@ def main():
                 logging.info(f"\n{portfolio_table(broker.portfolio())}")
                 logging.info(f"\n{portfolio_table(broker.holdings_usdc())}")
             iter += 1
-
             time.sleep(TIME_SLEEP_SECONDS)
         except Exception as  e:
             print(f"something went wrong {e}")
