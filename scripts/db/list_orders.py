@@ -1,18 +1,21 @@
 from models import engine, Order, sessionmaker
 from prettytable import PrettyTable  # Import the PrettyTable library
+import sys
 
-def list_orders():
+def list_orders(status):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    # orders = session.query(Order).all()
-    orders = session.query(Order).filter_by(status="OPEN")
+    orders = None
+    if status == 'OPEN' or status == 'SOLD':
+        orders = session.query(Order).filter(Order.status == status)
+    else:
+        orders = session.query(Order).all()
+
     table = PrettyTable()  # Create a PrettyTable instance 
     table.field_names = ["ID", "Status", "Action", "Coinbase Product ID", 
                          "Quantity", "Price", "Spread", "Stop Loss", "Target", 
                          "Max D", "Min D",
-                         "# Pred > Hit", "Max D Avg",
-                         "Max D STD", "Min D Avg", "Min D STD",
                          "Created At"]
 
     for order in orders:
@@ -27,17 +30,19 @@ def list_orders():
                        round(order.profit_percent, 2), 
                        round(order.predicted_max_delta, 2),
                        round(order.predicted_min_delta, 2),
-                       round(order.num_predictions_over_hit, 2),
-                       round(order.max_delta_average, 2),
-                       round(order.max_delta_std, 2),
-                       round(order.min_delta_average, 2),
-                       round(order.min_delta_std, 2),
+                    #    round(order.num_predictions_over_hit, 2),
+                    #    round(order.max_delta_average, 2),
+                    #    round(order.max_delta_std, 2),
+                    #    round(order.min_delta_average, 2),
+                    #    round(order.min_delta_std, 2),
                        order.created_at])
 
     session.close()
     print(table)  # Print the formatted table
 
 if __name__ == "__main__":
-    list_orders()
+    
+    status = sys.argv[1] if len(sys.argv) > 1  else None
+    list_orders(status)
 
 

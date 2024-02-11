@@ -343,15 +343,6 @@ def runit():
                 positive_predictions, portfolio, holdings_usdc[0].balance_usd
             )
 
-            # logging.info(prediction_prompt)
-
-            # gpt = GPT(openai_api_key)
-            # result = gpt.query(prediction_prompt)
-            # purchase_decision_symbol = parse_llm_purchase_response(result)
-
-            # if purchase_decision_symbol == 'NONE':
-            #     logging.info("Declined with NONE")
-            # else:
             for purchase_decision_symbol in positive_predictions['Symbol'].values:
                 product_id = f"{purchase_decision_symbol}-USDC"
                 limit_price = broker.get_best_asks([product_id])[product_id]
