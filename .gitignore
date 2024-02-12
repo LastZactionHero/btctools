@@ -1,6 +1,7 @@
 .env
 data/*.csv
 models/*.h5
+logs/*
 
 # macOS system files that can be safely ignored
 .DS_Store
