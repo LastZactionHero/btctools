@@ -5,11 +5,15 @@ from datetime import datetime
 from dotenv import load_dotenv 
 import os 
 
-load_dotenv()
-db_filename = os.getenv("DATABASE_FILENAME")
+# load_dotenv()
+# db_filename = os.getenv("DATABASE_FILENAME")
 
-engine = create_engine(f'sqlite:///{db_filename}', echo=False)  # Use relative path
+# engine = None
 Base = declarative_base()
+
+def init_db_engine(filename):
+    return create_engine(f'sqlite:///{filename}', echo=False)  # Use relative path
+    
 
 class Order(Base):
     __tablename__ = 'orders'

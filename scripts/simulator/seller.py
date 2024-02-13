@@ -1,11 +1,9 @@
-from scripts.db.models import engine, Order, sessionmaker
+from scripts.db.models import Order, sessionmaker
 
 class Seller():
-    RAISE_STOPLOSS_THRESHOLD = 1.012
-    SELL_STOPLOSS_FLOOR = 0.005
-
-    def __init__(self, prices):
+    def __init__(self, context, prices):
         self.prices = prices
+        self.context = context
     
     def sell(self, timestamp):
         orders = self.load_orders()
@@ -29,7 +27,7 @@ class Seller():
                     self.update_order_stoploss(order, new_stoploss_value)
 
     def sell_order(self, order, best_bid):
-        Session = sessionmaker(bind=engine)
+        Session = sessionmaker(bind=self.context['engine'])
         session = Session()
         order_to_update = session.get(Order, order.id)
 
@@ -44,7 +42,7 @@ class Seller():
         session.close()
 
     def update_order_stoploss(self, order, new_stoploss_value):
-        Session = sessionmaker(bind=engine)
+        Session = sessionmaker(bind=self.context['engine'])
         session = Session()
 
         order_to_update = session.get(Order, order.id)  # Get the Order from the database
@@ -56,8 +54,8 @@ class Seller():
         prev_value = order.stop_loss_percent
         next_value = order.stop_loss_percent
 
-        if best_bid >= order.purchase_price * self.RAISE_STOPLOSS_THRESHOLD:
-            next_value = ((best_bid - order.purchase_price) / order.purchase_price) + 1 - self.SELL_STOPLOSS_FLOOR
+        if best_bid >= order.purchase_price * self.context['raise_stoploss_threshold']:
+            next_value = ((best_bid - order.purchase_price) / order.purchase_price) + 1 - self.context['sell_stoploss_floor']
 
         return max(next_value, prev_value)
 
@@ -71,11 +69,8 @@ class Seller():
         return order.purchase_price * order.profit_percent
 
     def load_orders(self):
-        Session = sessionmaker(bind=engine)
+        Session = sessionmaker(bind=self.context['engine'])
         session = Session()
         orders = session.query(Order).filter_by(status="OPEN").all()  # Filter only OPEN orders
         session.close()
         return orders
-
-
-

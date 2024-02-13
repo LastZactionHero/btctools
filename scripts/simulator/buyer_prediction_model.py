@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import os
 
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
@@ -9,14 +10,25 @@ class BuyerPredictionModel:
     SEQUENCE_LOOKBEHIND_MINUTES = 240
     PREDICTION_LOOKAHEAD_MINUTES = 30
 
-    def __init__(self, data):
+    def __init__(self, data, cache=None):
         self.data = data
         self.data_no_timestamps = self.data.copy().drop("timestamp", axis=1)
         self.model = load_model(self.MODEL_FILENAME)
+        self.cache = cache
 
     def predict(self, timestamp):
+        if self.cache:
+            model_name = os.path.basename(self.MODEL_FILENAME).split(".")[0]
+            cached_predictions = self.cache.load_predictions_from_cache(model_name, timestamp)
+            if cached_predictions is not None:
+                return cached_predictions
+
         row_idx = self.find_row_idx(timestamp)
         predictions = self.build_predictions(row_idx)
+
+        if self.cache:
+            model_name = os.path.basename(self.MODEL_FILENAME).split(".")[0]
+            self.cache.save_to_cache(model_name, timestamp, predictions)
         return predictions
 
     def find_row_idx(self, timestamp):
@@ -49,6 +61,7 @@ class BuyerPredictionModel:
 
             d_max = round((p_max - latest_price) / latest_price * 100.0, 2)
             d_min = round((p_min - latest_price) / latest_price * 100.0, 2)
+            d_mean = round((np.mean(unscaled) - latest_price) / latest_price * 100, 2)
 
             row = pd.DataFrame({
                 'Coin': [coins[i]],
@@ -56,7 +69,8 @@ class BuyerPredictionModel:
                 'Max': [p_max],
                 'Max Delta': [d_max],
                 'Min': [p_min],
-                'Min Delta': [d_min]
+                'Min Delta': [d_min],
+                'Mean Delta': d_mean
             })
             predictions = pd.concat([predictions, row])
 

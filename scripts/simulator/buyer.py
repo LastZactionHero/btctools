@@ -1,38 +1,42 @@
 import pandas as pd
 from datetime import datetime
-from scripts.db.models import engine, Order, sessionmaker
+from scripts.db.models import Order, sessionmaker
 from scripts.trade.coingecko_coinbase_pairs import gecko_coinbase_currency_map
 
 class Buyer:
-    ORDER_AMOUNT_USD = 100.0
-    STOP_LOSS_PERCENT = 0.96
-    TAKE_PROFIT_PERCENT = 1.1
-    MAX_DELTA = 2.0
-
-    def __init__(self, data, model, prices):
+    def __init__(self, context, data, model, prices):
+        self.context = context
         self.data = data
         self.model = model
         self.prices = prices
     
     def buy(self, timestamp):
         predictions = self.model.predict(timestamp)
-        filtered_predictions = self.filter_predictions(predictions)
+        filtered_predictions = self.filter_predictions(predictions, timestamp)
 
         if len(filtered_predictions) == 0:
             print("Nothing to buy...")
             return
 
-        selection = self.select_buy(filtered_predictions)        
-        self.create_order(selection, timestamp)
+        for idx, row in filtered_predictions.iterrows():
+            self.create_order(row, timestamp)
 
-    def filter_predictions(self, predictions):
+    def filter_predictions(self, predictions, timestamp):
         filtered = predictions.copy()
-        filtered = filtered[filtered['Max Delta'] > self.MAX_DELTA]
+        filtered = filtered[filtered['Mean Delta'] > self.context['max_delta']]
         filtered['Symbol'] = filtered['Coin'].map(lambda x: gecko_coinbase_currency_map.get(x, 'UNSUPPORTED'))
         filtered = filtered[filtered['Symbol'] != 'UNSUPPORTED']
-        print(predictions)
+        filtered = filtered[filtered.apply(lambda row: self.current_spread(row, timestamp) < self.context['max_spread'], axis=1)]
+
         return filtered
-    
+
+
+    def current_spread(self, prediction, timestamp):
+        symbol = prediction['Symbol']
+        current_ask = self.prices.ask_at_timestamp(symbol, timestamp)
+        current_bid = self.prices.bid_at_timestamp(symbol, timestamp)
+        return (current_ask - current_bid) / current_bid
+        
     def select_buy(self, predictions):
          return predictions.sample(n=1).iloc[0]
     
@@ -44,10 +48,10 @@ class Buyer:
         current_ask = self.prices.ask_at_timestamp(symbol, timestamp)
         current_bid = self.prices.bid_at_timestamp(symbol, timestamp)
         spread = round((current_ask - current_bid) / current_bid * 100, 3)
-        quantity =  round(self.ORDER_AMOUNT_USD / current_ask, 5)
+        quantity =  round(self.context['order_amount_usd'] / current_ask, 5)
         created_at = datetime.utcfromtimestamp(timestamp)
 
-        Session = sessionmaker(bind=engine)
+        Session = sessionmaker(bind=self.context['engine'])
         session = Session()
 
         print(f"Buying: {symbol} @ ${current_ask}, prediction: {selection['Max Delta']}%")
@@ -58,8 +62,8 @@ class Buyer:
             purchase_price=current_ask,
             status="OPEN",
             action="SELL",
-            stop_loss_percent=self.STOP_LOSS_PERCENT,
-            profit_percent=self.TAKE_PROFIT_PERCENT,
+            stop_loss_percent=self.context['stop_loss_percent'],
+            profit_percent=self.context['take_profit_percent'],
             predicted_max_delta=selection['Max Delta'],
             predicted_min_delta=selection['Min Delta'],
             purchase_time_spread_percent=spread,

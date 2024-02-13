@@ -4,7 +4,7 @@ TODOS:
 
 IDEAS:
 - Global Market Condition (good time to buy or dump?)
-
+- Auto-lower stop loss 
 
 Data: 144.202.24.235
 Magpie: 108.61.193.193
@@ -16,34 +16,85 @@ sudo apt update  # Update package list
 sudo apt install sqlite3
 ```
 
+try: 
+-sell all coin orders on sale
+
+sweeps
+| Parameter                   | Status      | Result |
+|-----------------------------|-------------|--------|
+| buy_interval_minutes        | Not Started |        |
+| raise_stoploss_threshold    | In Progress |        |
+| sell_stoploss_floor         | Complete    |  0.002 |
+| stop_loss_percent           | Complete    |  0.08  |
+| max_delta                   | Not Started |        |
+| max_spread                  | Not Started |        |
+| recovery_stoploss_threshold | Not Impl    |        |
+
 Experiments:
 
+magpie_sim_01.db
 
-- exp0: 
-result: ~$910
-hits: 20, 40%
-misses: 29
+RAISE_STOPLOSS_THRESHOLD = 1.012
+SELL_STOPLOSS_FLOOR = 0.005
+ORDER_AMOUNT_USD = 100.0
+STOP_LOSS_PERCENT = 0.96
+TAKE_PROFIT_PERCENT = 1.1
+MAX_DELTA = 2.0
+MODEL_FILENAME = "./models/lstm_series_240m.h5"
+SEQUENCE_LOOKBEHIND_MINUTES = 240
+PREDICTION_LOOKAHEAD_MINUTES = 30
 
-01/23/24
-LSTM Series
-PRIOR_MINUTES_TO_REVIEW = 14 * 24 * 60  # 14 days
-POSITIVE_PREDICTION_MIN_DELTA = 2.0
-MIN_POSITIVE_PREDICTIONS = 0
-MAX_BUY_AMOUNT_USDC = 100
-MIN_BUY_AMOUNT_USDC = 50
-STOP_LOSS_PERCENT = 0.98
-PROFIT_PERCENT = 1.1
-TIME_ABOVE_MAX_PERCENTAGE = 1.0
-TIME_ABOVE_MIN_PERCENTAGE = 0.0
-MIN_HIT_COUNT = 2
-HIT_FACTOR = 1.04
-PREDICTION_SEQUENCE_LOOKBEHIND_DAYS = 7
+sim 02:
+Experiment: Reduced STOP_LOSS_PERCENT to 0.92
 
-- exp1: 
-01/23/24, 8:40 AM
-raised stop-loss to 0.98 
-RAISE_STOPLOSS_THRESHOLD = 1.0d1
+RAISE_STOPLOSS_THRESHOLD = 1.012
+SELL_STOPLOSS_FLOOR = 0.005
+ORDER_AMOUNT_USD = 100.0
+STOP_LOSS_PERCENT = 0.92
+TAKE_PROFIT_PERCENT = 1.1
+MAX_DELTA = 2.0
+MODEL_FILENAME = "./models/lstm_series_240m.h5"
+SEQUENCE_LOOKBEHIND_MINUTES = 240
+PREDICTION_LOOKAHEAD_MINUTES = 30
 
--exp1: 240min series, 30 minute estimate
-hits: 15, 48%
-misses: 16
+sim 03:
+Experiment:  STOP_LOSS_PERCENT to 0.95, SELL_STOPLOSS_FLOOR higher to 0.01 to capitalize on bigger potential gains
+
+RAISE_STOPLOSS_THRESHOLD = 1.012
+SELL_STOPLOSS_FLOOR = 0.01
+ORDER_AMOUNT_USD = 100.0
+STOP_LOSS_PERCENT = 0.95
+TAKE_PROFIT_PERCENT = 1.1
+MAX_DELTA = 2.0
+MODEL_FILENAME = "./models/lstm_series_240m.h5"
+SEQUENCE_LOOKBEHIND_MINUTES = 240
+PREDICTION_LOOKAHEAD_MINUTES = 30
+
+sim 04:
+Experiment: Raises STOP_LOSS_PERCENT to middle 0.94, SELL_STOPLOSS_FLOOR to middle 0.0075
+
+RAISE_STOPLOSS_THRESHOLD = 1.012
+SELL_STOPLOSS_FLOOR = 0.005
+ORDER_AMOUNT_USD = 100.0
+STOP_LOSS_PERCENT = 0.94
+TAKE_PROFIT_PERCENT = 1.1
+MAX_DELTA = 2.0
+MODEL_FILENAME = "./models/lstm_series_240m.h5"
+SEQUENCE_LOOKBEHIND_MINUTES = 240
+PREDICTION_LOOKAHEAD_MINUTES = 30
+
+sim 05:
+Experiment: STOP_LOSS_PERCENT to 0.93, spread max to 0.2%, max delta to 3.0
+
+Kind of a mess...
+
+MAX_SPREAD = 0.001
+RAISE_STOPLOSS_THRESHOLD = 1.012
+SELL_STOPLOSS_FLOOR = 0.005
+ORDER_AMOUNT_USD = 100.0
+STOP_LOSS_PERCENT = 0.93
+TAKE_PROFIT_PERCENT = 1.1
+MAX_DELTA = 3.0
+MODEL_FILENAME = "./models/lstm_series_240m.h5"
+SEQUENCE_LOOKBEHIND_MINUTES = 240
+PREDICTION_LOOKAHEAD_MINUTES = 30

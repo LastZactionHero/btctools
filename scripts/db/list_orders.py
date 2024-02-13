@@ -1,6 +1,8 @@
-from models import engine, Order, sessionmaker
+from models import Order, sessionmaker, init_db_engine
 from prettytable import PrettyTable  # Import the PrettyTable library
 import sys
+
+engine = init_db_engine(sys.argv[1])
 
 def list_orders(status):
     Session = sessionmaker(bind=engine)
@@ -42,7 +44,7 @@ def list_orders(status):
 
 if __name__ == "__main__":
     
-    status = sys.argv[1] if len(sys.argv) > 1  else None
+    status = sys.argv[2] if len(sys.argv) > 2  else None
     list_orders(status)
 
 
