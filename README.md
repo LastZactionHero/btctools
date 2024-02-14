@@ -23,12 +23,13 @@ sweeps
 | Parameter                   | Status      | Result |
 |-----------------------------|-------------|--------|
 | buy_interval_minutes        | Not Started |        |
-| raise_stoploss_threshold    | In Progress |        |
+| raise_stoploss_threshold    | Complete    |  1.018 |
 | sell_stoploss_floor         | Complete    |  0.002 |
 | stop_loss_percent           | Complete    |  0.08  |
-| max_delta                   | Not Started |        |
-| max_spread                  | Not Started |        |
+| max_delta                   | Complete    |  4.5   |
+| max_spread                  | Complete    |  None  |
 | recovery_stoploss_threshold | Not Impl    |        |
+| sell_all_on_hit             | In Progress |        |
 
 Experiments:
 

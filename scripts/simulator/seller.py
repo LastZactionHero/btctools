@@ -1,3 +1,4 @@
+from sqlalchemy import and_
 from scripts.db.models import Order, sessionmaker
 
 class Seller():
@@ -20,17 +21,32 @@ class Seller():
             best_bid = float(best_bids[order.coinbase_product_id])
 
             if self.should_trigger_order(order, best_bid):
-                self.sell_order(order, best_bid)
+                if self.context['sell_all_on_hit']:
+                    self.sell_entire_holding(order, best_bid)
+                else:
+                    self.sell_order(order, best_bid)
             else:
                 new_stoploss_value = self.adjust_stoploss(order, best_bid)
                 if new_stoploss_value != order.stop_loss_percent:
                     self.update_order_stoploss(order, new_stoploss_value)
 
+    def sell_entire_holding(self, order, best_bid):
+        Session = sessionmaker(bind=self.context['engine'])
+        session = Session()
+        orders_to_sell = session.query(Order).filter(
+            and_(Order.status == "OPEN", 
+                Order.coinbase_product_id == order.coinbase_product_id))
+        for order in orders_to_sell:
+            order.status = "SOLD"
+            order.stop_loss_percent = ((best_bid - order.purchase_price) / order.purchase_price) + 1
+        session.commit()
+        session.close()        
+
     def sell_order(self, order, best_bid):
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
         order_to_update = session.get(Order, order.id)
-
+        
         print(f"Selling: {order.coinbase_product_id}")
         if(best_bid > order.purchase_price):
             print("Selling for a profit!!!")

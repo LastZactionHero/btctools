@@ -19,8 +19,8 @@ data_crypto_exchange_rates = pd.read_csv(FILENAME_CRYPTO_EXCHANGE_RATES)
 data_asks = pd.read_csv(FILENAME_ASKS)
 data_bids = pd.read_csv(FILENAME_BIDS)
 
-experiment_name = "raise_stoploss_threshold"
-parameter_values = [1.002, 1.004, 1.006, 1.008, 1.012, 1.014, 1.016, 1.018]
+experiment_name = "sell_all_on_hit"
+parameter_values = [True, False]
 
 def time_remaining(start_time, step_idx, step_count):
     now = datetime.now()
@@ -38,19 +38,28 @@ def time_remaining(start_time, step_idx, step_count):
     return f"{round(percent_complete * 100)}%: {hours:02d}:{minutes:02d}:{seconds:02d} remaining"
 
 for parameter_value in parameter_values:
-    parameter_str = str(parameter_value).replace(".", "_")
+    parameter_str = None
+    if type(parameter_value) == bool:
+        if parameter_value == True:
+            parameter_str = "1_0"
+        else:
+            parameter_str = "0_0"
+    else: 
+        parameter_str = str(parameter_value).replace(".", "_")
+
     db_filename = f"./db/exp_{experiment_name}_{parameter_str}.db"
    
     context = {
         "buy_interval_minutes": 10,
         "run_duration_minutes": None,
-        "raise_stoploss_threshold": parameter_value, # Sweep 3
+        "raise_stoploss_threshold": 1.018, # Sweep 3
         "sell_stoploss_floor": 0.002, # Sweep 1
         "order_amount_usd": 100.0,
         "stop_loss_percent": 0.08, # Sweep 2
         "take_profit_percent": 1.1,
-        "max_delta": 2.0,
-        "max_spread": 1.0, #unset, values like 0.01
+        "max_delta": 4.5, # Sweep 4
+        "max_spread": 1.0, # Sweep 5
+        "sell_all_on_hit": False,
         "engine": init_db_engine(db_filename)
     }
     Base.metadata.create_all(context['engine']) 
