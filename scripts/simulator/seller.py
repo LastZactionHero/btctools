@@ -1,5 +1,6 @@
 from sqlalchemy import and_
 from scripts.db.models import Order, sessionmaker
+from datetime import datetime
 
 class Seller():
     def __init__(self, context, prices):
@@ -24,7 +25,7 @@ class Seller():
                 if self.context['sell_all_on_hit']:
                     self.sell_entire_holding(order, best_bid)
                 else:
-                    self.sell_order(order, best_bid)
+                    self.sell_order(order, best_bid, timestamp)
             else:
                 new_stoploss_value = self.adjust_stoploss(order, best_bid)
                 if new_stoploss_value != order.stop_loss_percent:
@@ -42,7 +43,7 @@ class Seller():
         session.commit()
         session.close()        
 
-    def sell_order(self, order, best_bid):
+    def sell_order(self, order, best_bid, timestamp):
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
         order_to_update = session.get(Order, order.id)
@@ -53,7 +54,12 @@ class Seller():
         else:
             print("Selling for a loss :(")
 
+        timestamp_dt = datetime.utcfromtimestamp(timestamp)
+        if timestamp_dt < order_to_update.created_at:
+            import pdb; pdb.set_trace()
+
         order_to_update.status = "SOLD"
+        order_to_update.sold_at = timestamp_dt
         session.commit()
         session.close()
 
@@ -61,9 +67,9 @@ class Seller():
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
 
-        order_to_update = session.get(Order, order.id)  # Get the Order from the database
-        order_to_update.stop_loss_percent = new_stoploss_value   # Update the stop-loss
-        session.commit()    # Commit the change to the database
+        order_to_update = session.get(Order, order.id)
+        order_to_update.stop_loss_percent = new_stoploss_value
+        session.commit()
         session.close()
             
     def adjust_stoploss(self, order, best_bid):
@@ -87,6 +93,6 @@ class Seller():
     def load_orders(self):
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
-        orders = session.query(Order).filter_by(status="OPEN").all()  # Filter only OPEN orders
+        orders = session.query(Order).filter_by(status="OPEN").all()
         session.close()
         return orders

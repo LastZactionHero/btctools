@@ -7,6 +7,7 @@ from scripts.db.models import Order, sessionmaker, init_db_engine
 experiment_name = sys.argv[1]
 
 FEES = 0.004
+RUN_DURATION_MINUTES = 5 * 60 * 24
 FILENAME_BIDS = "./data/bids.csv"
 data_bids = pd.read_csv(FILENAME_BIDS)
 
@@ -77,7 +78,14 @@ for db_filename in matching_files:
             purchase_price = ((order.purchase_price * order.quantity) * (1 + FEES))
 
             symbol = order.coinbase_product_id.split("-")[0]
+
             latest_price = data_bids.iloc[-1][symbol]
+            if RUN_DURATION_MINUTES is not None:
+                start_timestamp = sorted(orders, key=lambda o: o.created_at)[0].created_at.timestamp()
+                end_timestamp = start_timestamp + RUN_DURATION_MINUTES * 60
+                data_bids[data_bids['timestamp'] > end_timestamp]
+                latest_price = data_bids[data_bids['timestamp'] > end_timestamp].iloc[0][symbol]
+            
             sale_price = (order.quantity * latest_price) * (1 - FEES)
 
             order_net = sale_price - purchase_price

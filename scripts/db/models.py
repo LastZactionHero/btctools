@@ -36,6 +36,7 @@ class Order(Base):
     min_delta_average=Column(Float)
     min_delta_std=Column(Float)
     created_at = Column(DateTime, default=datetime.now)
+    sold_at = Column(DateTime)
 
 class SimulatedHolding(Base):
     __tablename__ = 'simulated_holding'

@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 from scripts.db.models import Order, sessionmaker, init_db_engine
+import pandas as pd
 
 FEES = 0.004
 
@@ -18,6 +19,8 @@ profit_spread = []
 loss_spread = []
 profit_est_delta = []
 loss_est_delta = []
+
+data_bids = pd.read_csv(FILENAME_BIDS)
 
 for order in orders:
     if order.status == "SOLD":
@@ -42,17 +45,26 @@ total_purchases = 0
 total_net = 0
 
 for order in orders:
-    if order.status != 'SOLD':
-        continue
+    for order in orders:
+        if order.status == 'SOLD':
+            purchase_price = ((order.purchase_price * order.quantity) * (1 + FEES))
+            sale_price = (order.purchase_price * order.quantity * order.stop_loss_percent) * (1 - FEES)
+            order_net = sale_price - purchase_price
 
-    purchase_price = ((order.purchase_price * order.quantity) * (1 + FEES))
-    # print(f"purchased: {purchase_price}")
-    sale_price = (order.purchase_price * order.quantity * order.stop_loss_percent) * (1 - FEES)
-    # print(f"sold:      {sale_price}")
-    order_net = sale_price - purchase_price
-    # print(f"net:       {order_net}")
+            total_purchases += purchase_price
+            total_net += order_net
+        else:
+            # What would be the price if it sold now?
+            purchase_price = ((order.purchase_price * order.quantity) * (1 + FEES))
 
-    # print(f"Net: ${round(order_net, 2)}, Purchase: ${round(purchase_price, 2)}, Sale: ${round(sale_price, 2)}")
+            symbol = order.coinbase_product_id.split("-")[0]
+            latest_price = data_bids.iloc[-1][symbol]
+            sale_price = (order.quantity * latest_price) * (1 - FEES)
+
+            order_net = sale_price - purchase_price
+
+            total_purchases += purchase_price
+            total_net += order_net
 
     total_purchases += purchase_price
     total_net += order_net

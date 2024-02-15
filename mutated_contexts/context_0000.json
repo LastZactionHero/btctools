@@ -1,0 +1,11 @@
+{
+    "total_net": 298.896317,
+    "percent_change": 0.95,
+    "context": {
+        "raise_stoploss_threshold": 1.018,
+        "sell_stoploss_floor": 0.002,
+        "stop_loss_percent": 0.08,
+        "max_delta": 4.5,
+        "max_spread": 1.0
+    }
+}
