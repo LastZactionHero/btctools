@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, JSON, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -37,6 +37,7 @@ class Order(Base):
     min_delta_std=Column(Float)
     created_at = Column(DateTime, default=datetime.now)
     sold_at = Column(DateTime)
+    recovery_mode = Column(Boolean)
 
 class SimulatedHolding(Base):
     __tablename__ = 'simulated_holding'

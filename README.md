@@ -17,7 +17,7 @@ sudo apt install sqlite3
 ```
 
 TODOS:
-- Trial "ready" context over random segments
+- Update data
 - Dumping long-open orders (lower raise_stoploss_threshold after > 4 days)
 - Ship it!
 
@@ -31,8 +31,8 @@ sweeps
 | stop_loss_percent           | Complete    |  0.07820 |
 | max_delta                   | Complete    |  4.30120 |
 | max_spread                  | Complete    |  None    |
-| recovery_stoploss_threshold | Not Impl    |          |
 | sell_all_on_hit             | Complete    |  No      |
+| loss_recovery_after_minutes | In Progress |          |
 
 
 | Category      | Avg hold time|Median hold time|Max hold time|Min hold time|Std Dev hold time|

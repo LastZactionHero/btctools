@@ -24,8 +24,8 @@ data_crypto_exchange_rates = pd.read_csv(FILENAME_CRYPTO_EXCHANGE_RATES)
 data_asks = pd.read_csv(FILENAME_ASKS)
 data_bids = pd.read_csv(FILENAME_BIDS)
 
-experiment_name = "random_time_ranges"
-parameter_values = list(range(0,50))
+experiment_name = "recovery_mode"
+parameter_values = [4, 5, 6, 7, 8, 9, 10, 20]
 
 def time_remaining(start_time, step_idx, step_count):
     now = datetime.now()
@@ -73,6 +73,7 @@ for parameter_value in parameter_values:
         "max_delta": 4.3012, # Sweep 4
         "max_spread": 1.0, # Sweep 5
         "sell_all_on_hit": False,
+        "loss_recovery_after_minutes": parameter_value * 24 * 60,
         "engine": engine
     }
 

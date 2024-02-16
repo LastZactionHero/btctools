@@ -4,7 +4,7 @@ from scripts.db.models import Order, sessionmaker, init_db_engine
 import pandas as pd
 
 FEES = 0.004
-
+FILENAME_BIDS = "./data/bids.csv"
 db_filename = sys.argv[1]
 engine = init_db_engine(db_filename)
 

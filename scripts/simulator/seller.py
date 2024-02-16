@@ -26,6 +26,8 @@ class Seller():
                     self.sell_entire_holding(order, best_bid)
                 else:
                     self.sell_order(order, best_bid, timestamp)
+            if self.should_trigger_loss_recovery(order, timestamp):
+                self.update_recovery_mode(order, best_bid)
             else:
                 new_stoploss_value = self.adjust_stoploss(order, best_bid)
                 if new_stoploss_value != order.stop_loss_percent:
@@ -63,6 +65,18 @@ class Seller():
         session.commit()
         session.close()
 
+    def update_recovery_mode(self, order, best_bid):
+        Session = sessionmaker(bind=self.context['engine'])
+        session = Session()
+
+        order_to_update = session.get(Order, order.id)
+        order_to_update.stop_loss_percent = best_bid * self.context['raise_stoploss_threshold']
+        order_to_update.recovery_mode = True
+
+        session.commit()
+        session.close()
+        
+
     def update_order_stoploss(self, order, new_stoploss_value):
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
@@ -84,6 +98,12 @@ class Seller():
     def should_trigger_order(self, order, exchange_rate_usd):
         return exchange_rate_usd >= self.profit_price(order) or exchange_rate_usd <= self.stop_loss_price(order)
     
+    def should_trigger_loss_recovery(self, order, timestamp):
+        created_minutes_ago = (timestamp - order.created_at.timestamp()) / 60
+        if self.context['loss_recovery_after_minutes'] is not None and self.context['loss_recovery_after_minutes'] > created_minutes_ago and order.recovery_mode == False:
+            return True
+        return False
+
     def stop_loss_price(self, order):
         return order.purchase_price * order.stop_loss_percent
 

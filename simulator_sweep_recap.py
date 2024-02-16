@@ -7,7 +7,7 @@ from scripts.db.models import Order, sessionmaker, init_db_engine
 experiment_name = sys.argv[1]
 
 FEES = 0.004
-RUN_DURATION_MINUTES = 5 * 60 * 24
+RUN_DURATION_MINUTES = None #5 * 60 * 24
 FILENAME_BIDS = "./data/bids.csv"
 data_bids = pd.read_csv(FILENAME_BIDS)
 
