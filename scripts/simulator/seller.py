@@ -1,6 +1,6 @@
 from sqlalchemy import and_
 from scripts.db.models import Order, sessionmaker
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Seller():
     def __init__(self, context, prices):
@@ -26,8 +26,8 @@ class Seller():
                     self.sell_entire_holding(order, best_bid)
                 else:
                     self.sell_order(order, best_bid, timestamp)
-            if self.should_trigger_loss_recovery(order, timestamp):
-                self.update_recovery_mode(order, best_bid)
+            elif self.should_trigger_loss_recovery(order, timestamp):
+                self.set_recovery_mode(order, best_bid)
             else:
                 new_stoploss_value = self.adjust_stoploss(order, best_bid)
                 if new_stoploss_value != order.stop_loss_percent:
@@ -56,21 +56,23 @@ class Seller():
         else:
             print("Selling for a loss :(")
 
-        timestamp_dt = datetime.utcfromtimestamp(timestamp)
-        if timestamp_dt < order_to_update.created_at:
-            import pdb; pdb.set_trace()
+        timestamp_dt = datetime.fromtimestamp(timestamp, timezone.utc)
+        # Timezones FML
+        # if timestamp_dt < order_to_update.created_at.timestamp() - (7 * 60 * 60):
+        #     import pdb; pdb.set_trace()
 
         order_to_update.status = "SOLD"
         order_to_update.sold_at = timestamp_dt
         session.commit()
         session.close()
 
-    def update_recovery_mode(self, order, best_bid):
+    def set_recovery_mode(self, order, best_bid):
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
 
         order_to_update = session.get(Order, order.id)
-        order_to_update.stop_loss_percent = best_bid * self.context['raise_stoploss_threshold']
+        new_price_target = best_bid * (self.context['raise_stoploss_threshold'])
+        order_to_update.stop_loss_percent = (new_price_target - order_to_update.purchase_price) / order_to_update.purchase_price
         order_to_update.recovery_mode = True
 
         session.commit()
@@ -99,8 +101,11 @@ class Seller():
         return exchange_rate_usd >= self.profit_price(order) or exchange_rate_usd <= self.stop_loss_price(order)
     
     def should_trigger_loss_recovery(self, order, timestamp):
-        created_minutes_ago = (timestamp - order.created_at.timestamp()) / 60
-        if self.context['loss_recovery_after_minutes'] is not None and self.context['loss_recovery_after_minutes'] > created_minutes_ago and order.recovery_mode == False:
+        # Timezones, FML
+        created_minutes_ago = (timestamp - (order.created_at.timestamp() - (7 * 60 * 60))) / 60
+        if created_minutes_ago < 0:
+            import pdb; pdb.set_trace()
+        if self.context['loss_recovery_after_minutes'] is not None and created_minutes_ago > self.context['loss_recovery_after_minutes'] and order.recovery_mode == False:
             return True
         return False
 

@@ -35,9 +35,10 @@ class Order(Base):
     max_delta_std=Column(Float)
     min_delta_average=Column(Float)
     min_delta_std=Column(Float)
-    created_at = Column(DateTime, default=datetime.now)
-    sold_at = Column(DateTime)
-    recovery_mode = Column(Boolean)
+    created_at = Column(DateTime(timezone=True), default=datetime.now)
+    sold_at = Column(DateTime(timezone=True))
+    recovery_mode = Column(Boolean, default=False)
+    recovery_set = Column(Boolean, default=False)
 
 class SimulatedHolding(Base):
     __tablename__ = 'simulated_holding'

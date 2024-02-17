@@ -18,7 +18,7 @@ sudo apt install sqlite3
 
 TODOS:
 - Update data
-- Dumping long-open orders (lower raise_stoploss_threshold after > 4 days)
+- Final check with gold config
 - Ship it!
 
 
@@ -32,7 +32,8 @@ sweeps
 | max_delta                   | Complete    |  4.30120 |
 | max_spread                  | Complete    |  None    |
 | sell_all_on_hit             | Complete    |  No      |
-| loss_recovery_after_minutes | In Progress |          |
+| loss_recovery_after_minutes | Complete    |  4d      |
+| single_buy                  | Complete    |  True    |
 
 
 | Category      | Avg hold time|Median hold time|Max hold time|Min hold time|Std Dev hold time|

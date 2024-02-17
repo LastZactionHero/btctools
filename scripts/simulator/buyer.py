@@ -1,6 +1,7 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from scripts.db.models import Order, sessionmaker
+from sqlalchemy import and_
 from scripts.trade.coingecko_coinbase_pairs import gecko_coinbase_currency_map
 
 class Buyer:
@@ -18,8 +19,12 @@ class Buyer:
             print("Nothing to buy...")
             return
 
-        for idx, row in filtered_predictions.iterrows():
+        if self.context['single_buy'] == True:
+            row = filtered_predictions.sort_values(by='Mean Delta', ascending=False).iloc[0]
             self.create_order(row, timestamp)
+        else:
+            for idx, row in filtered_predictions.iterrows():
+                self.create_order(row, timestamp)
 
     def filter_predictions(self, predictions, timestamp):
         filtered = predictions.copy()
@@ -49,7 +54,7 @@ class Buyer:
         current_bid = self.prices.bid_at_timestamp(symbol, timestamp)
         spread = round((current_ask - current_bid) / current_bid * 100, 3)
         quantity =  round(self.context['order_amount_usd'] / current_ask, 5)
-        created_at = datetime.utcfromtimestamp(timestamp)
+        created_at = datetime.fromtimestamp(timestamp, timezone.utc)
 
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
@@ -72,3 +77,5 @@ class Buyer:
         session.add(order)
         session.commit()
         session.close()
+
+        

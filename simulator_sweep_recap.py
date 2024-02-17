@@ -94,7 +94,9 @@ for db_filename in matching_files:
             total_net += order_net
 
     final_balance = total_purchases + total_net
-    percent_change = round((final_balance - total_purchases) / total_purchases * 100, 2)
+    percent_change = 0
+    if total_purchases != 0:
+        percent_change = round((final_balance - total_purchases) / total_purchases * 100, 2)
 
     data.append([parameter_value, len(sold_for_profit), len(sold_at_loss), len(still_open), total_purchases, total_net, final_balance, percent_change])
 

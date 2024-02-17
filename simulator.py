@@ -24,8 +24,8 @@ data_crypto_exchange_rates = pd.read_csv(FILENAME_CRYPTO_EXCHANGE_RATES)
 data_asks = pd.read_csv(FILENAME_ASKS)
 data_bids = pd.read_csv(FILENAME_BIDS)
 
-experiment_name = "recovery_mode"
-parameter_values = [4, 5, 6, 7, 8, 9, 10, 20]
+experiment_name = "prep_random"
+parameter_values = [1,2,3,4,5,6,7,8,9]
 
 def time_remaining(start_time, step_idx, step_count):
     now = datetime.now()
@@ -64,7 +64,7 @@ for parameter_value in parameter_values:
     engine = init_db_engine(db_filename)
     base_context = {
         "buy_interval_minutes": 10,
-        "run_duration_minutes": 5 * 24 * 60, # 5 days
+        "run_duration_minutes": 7 * 24 * 60, # 5 days
         "raise_stoploss_threshold": 1.018, # Sweep 3
         "sell_stoploss_floor": 0.00184, # Sweep 1
         "order_amount_usd": 100.0,
@@ -74,6 +74,7 @@ for parameter_value in parameter_values:
         "max_spread": 1.0, # Sweep 5
         "sell_all_on_hit": False,
         "loss_recovery_after_minutes": parameter_value * 24 * 60,
+        "single_buy": True,
         "engine": engine
     }
 
@@ -115,9 +116,9 @@ for parameter_value in parameter_values:
         current_timestamp = int(timestamp)
         seller.sell(current_timestamp)
 
-        if (timestamp - last_buy_timestamp) > context['buy_interval_minutes'] * 60:
-            last_buy_timestamp = timestamp
-            buyer.buy(timestamp)
+        if (current_timestamp - last_buy_timestamp) > context['buy_interval_minutes'] * 60:
+            last_buy_timestamp = current_timestamp
+            buyer.buy(current_timestamp)
 
         if (context['run_duration_minutes'] and current_timestamp > start_timestamp + context['run_duration_minutes'] * 60):
             break

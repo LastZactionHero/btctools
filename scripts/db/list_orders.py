@@ -18,7 +18,7 @@ def list_orders(status):
     table.field_names = ["ID", "Status", "Action", "Coinbase Product ID", 
                          "Quantity", "Price", "Spread", "Stop Loss", "Target", 
                          "Max D", "Min D",
-                         "Created At", "Sold At"]
+                         "Created At", "Sold At", "RM", "RS"]
 
     for order in orders:
         table.add_row([order.id, 
@@ -38,7 +38,9 @@ def list_orders(status):
                     #    round(order.min_delta_average, 2),
                     #    round(order.min_delta_std, 2),
                        order.created_at,
-                       order.sold_at])
+                       order.sold_at,
+                       order.recovery_mode,
+                       order.recovery_set])
 
     session.close()
     print(table)  # Print the formatted table
