@@ -3,19 +3,21 @@ from scripts.db.models import Order, sessionmaker
 from datetime import datetime, timezone
 
 class Seller():
-    def __init__(self, context, prices):
-        self.prices = prices
+    def __init__(self, context, broker, timesource):
+        self.broker = broker
         self.context = context
+        self.timesource = timesource
     
-    def sell(self, timestamp):
+    def sell(self):
         orders = self.load_orders()
         if (len(orders) == 0):
             return
         
+        prices = self.broker.prices()
         best_bids = {}
         for order in orders:
             symbol = order.coinbase_product_id.split("-")[0]
-            price = self.prices.bid_at_timestamp(symbol, timestamp)
+            price = prices.bid(symbol)
             best_bids[order.coinbase_product_id] = price
 
         for order in orders:
@@ -25,8 +27,8 @@ class Seller():
                 if self.context['sell_all_on_hit']:
                     self.sell_entire_holding(order, best_bid)
                 else:
-                    self.sell_order(order, best_bid, timestamp)
-            elif self.should_trigger_loss_recovery(order, timestamp):
+                    self.sell_order(order, best_bid)
+            elif self.should_trigger_loss_recovery(order):
                 self.set_recovery_mode(order, best_bid)
             else:
                 new_stoploss_value = self.adjust_stoploss(order, best_bid)
@@ -45,7 +47,7 @@ class Seller():
         session.commit()
         session.close()        
 
-    def sell_order(self, order, best_bid, timestamp):
+    def sell_order(self, order, best_bid):
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
         order_to_update = session.get(Order, order.id)
@@ -56,10 +58,7 @@ class Seller():
         else:
             print("Selling for a loss :(")
 
-        timestamp_dt = datetime.fromtimestamp(timestamp, timezone.utc)
-        # Timezones FML
-        # if timestamp_dt < order_to_update.created_at.timestamp() - (7 * 60 * 60):
-        #     import pdb; pdb.set_trace()
+        timestamp_dt = datetime.fromtimestamp(self.timesource.now(), timezone.utc)
 
         order_to_update.status = "SOLD"
         order_to_update.sold_at = timestamp_dt
@@ -77,7 +76,6 @@ class Seller():
 
         session.commit()
         session.close()
-        
 
     def update_order_stoploss(self, order, new_stoploss_value):
         Session = sessionmaker(bind=self.context['engine'])
@@ -100,9 +98,9 @@ class Seller():
     def should_trigger_order(self, order, exchange_rate_usd):
         return exchange_rate_usd >= self.profit_price(order) or exchange_rate_usd <= self.stop_loss_price(order)
     
-    def should_trigger_loss_recovery(self, order, timestamp):
+    def should_trigger_loss_recovery(self, order):
         # Timezones, FML
-        created_minutes_ago = (timestamp - (order.created_at.timestamp() - (7 * 60 * 60))) / 60
+        created_minutes_ago = (self.timesource.now() - (order.created_at.timestamp() - (7 * 60 * 60))) / 60
         if created_minutes_ago < 0:
             import pdb; pdb.set_trace()
         if self.context['loss_recovery_after_minutes'] is not None and created_minutes_ago > self.context['loss_recovery_after_minutes'] and order.recovery_mode == False:

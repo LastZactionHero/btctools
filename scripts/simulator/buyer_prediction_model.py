@@ -10,19 +10,21 @@ class BuyerPredictionModel:
     SEQUENCE_LOOKBEHIND_MINUTES = 240
     PREDICTION_LOOKAHEAD_MINUTES = 30
 
-    def __init__(self, data, cache=None):
+    def __init__(self, data, timesource, cache=None):
         self.data = data
         self.data_no_timestamps = self.data.copy().drop("timestamp", axis=1)
         self.model = load_model(self.MODEL_FILENAME)
         self.cache = cache
+        self.timesource = timesource
 
-    def predict(self, timestamp):
+    def predict(self):
         if self.cache:
             model_name = os.path.basename(self.MODEL_FILENAME).split(".")[0]
-            cached_predictions = self.cache.load_predictions_from_cache(model_name, timestamp)
+            cached_predictions = self.cache.load_predictions_from_cache(model_name, self.timesource.now())
             if cached_predictions is not None:
                 return cached_predictions
 
+        timestamp = self.timesource.now()
         row_idx = self.find_row_idx(timestamp)
         predictions = self.build_predictions(row_idx)
 

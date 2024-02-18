@@ -5,15 +5,16 @@ from sqlalchemy import and_
 from scripts.trade.coingecko_coinbase_pairs import gecko_coinbase_currency_map
 
 class Buyer:
-    def __init__(self, context, data, model, prices):
+    def __init__(self, context, data, model, broker, timesource):
         self.context = context
         self.data = data
         self.model = model
-        self.prices = prices
+        self.broker = broker
+        self.timesource = timesource
     
-    def buy(self, timestamp):
-        predictions = self.model.predict(timestamp)
-        filtered_predictions = self.filter_predictions(predictions, timestamp)
+    def buy(self):
+        predictions = self.model.predict()
+        filtered_predictions = self.filter_predictions(predictions)
 
         if len(filtered_predictions) == 0:
             print("Nothing to buy...")
@@ -21,40 +22,44 @@ class Buyer:
 
         if self.context['single_buy'] == True:
             row = filtered_predictions.sort_values(by='Mean Delta', ascending=False).iloc[0]
-            self.create_order(row, timestamp)
+            self.create_order(row)
         else:
             for idx, row in filtered_predictions.iterrows():
-                self.create_order(row, timestamp)
+                self.create_order(row)
 
-    def filter_predictions(self, predictions, timestamp):
+    def filter_predictions(self, predictions):
         filtered = predictions.copy()
         filtered = filtered[filtered['Mean Delta'] > self.context['max_delta']]
         filtered['Symbol'] = filtered['Coin'].map(lambda x: gecko_coinbase_currency_map.get(x, 'UNSUPPORTED'))
         filtered = filtered[filtered['Symbol'] != 'UNSUPPORTED']
-        filtered = filtered[filtered.apply(lambda row: self.current_spread(row, timestamp) < self.context['max_spread'], axis=1)]
+        filtered = filtered[filtered.apply(lambda row: self.current_spread(row) < self.context['max_spread'], axis=1)]
 
         return filtered
 
 
-    def current_spread(self, prediction, timestamp):
+    def current_spread(self, prediction):
+        prices = self.broker.prices()
+
         symbol = prediction['Symbol']
-        current_ask = self.prices.ask_at_timestamp(symbol, timestamp)
-        current_bid = self.prices.bid_at_timestamp(symbol, timestamp)
+        current_ask = prices.ask(symbol)
+        current_bid = prices.bid(symbol)
         return (current_ask - current_bid) / current_bid
         
     def select_buy(self, predictions):
          return predictions.sample(n=1).iloc[0]
     
-    def create_order(self, selection, timestamp):
+    def create_order(self, selection):
+        prices = self.broker.prices()
+
         symbol = gecko_coinbase_currency_map.get(selection['Coin'])
         product_id = f"{symbol}-USDC"
 
-        order_id = f"{timestamp}_{symbol}"
-        current_ask = self.prices.ask_at_timestamp(symbol, timestamp)
-        current_bid = self.prices.bid_at_timestamp(symbol, timestamp)
+        order_id = f"{self.timesource.now()}_{symbol}"
+        current_ask = prices.ask(symbol)
+        current_bid = prices.bid(symbol)
         spread = round((current_ask - current_bid) / current_bid * 100, 3)
         quantity =  round(self.context['order_amount_usd'] / current_ask, 5)
-        created_at = datetime.fromtimestamp(timestamp, timezone.utc)
+        created_at = datetime.fromtimestamp(self.timesource.now(), timezone.utc)
 
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()

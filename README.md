@@ -16,9 +16,11 @@ sudo apt update  # Update package list
 sudo apt install sqlite3
 ```
 
+LIVE PREP:
+- Remove debugs
+- Logger
+
 TODOS:
-- Update data
-- Final check with gold config
 - Ship it!
 
 
