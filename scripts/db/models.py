@@ -40,6 +40,9 @@ class Order(Base):
     recovery_mode = Column(Boolean, default=False)
     recovery_set = Column(Boolean, default=False)
 
+    live_ordered = Column(Boolean, default=False)
+    live_sold = Column(Boolean, default=False)
+
 class SimulatedHolding(Base):
     __tablename__ = 'simulated_holding'
 

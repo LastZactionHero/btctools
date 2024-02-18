@@ -5,15 +5,15 @@ from sqlalchemy import and_
 from scripts.trade.coingecko_coinbase_pairs import gecko_coinbase_currency_map
 
 class Buyer:
-    def __init__(self, context, data, model, broker, timesource):
+    def __init__(self, context, model, broker, timesource):
         self.context = context
-        self.data = data
         self.model = model
         self.broker = broker
         self.timesource = timesource
     
-    def buy(self):
-        predictions = self.model.predict()
+    def buy(self, price_data, latest):
+        predictions = self.model.predict(price_data, latest)
+        print(predictions)
         filtered_predictions = self.filter_predictions(predictions)
 
         if len(filtered_predictions) == 0:
@@ -29,6 +29,7 @@ class Buyer:
 
     def filter_predictions(self, predictions):
         filtered = predictions.copy()
+        
         filtered = filtered[filtered['Mean Delta'] > self.context['max_delta']]
         filtered['Symbol'] = filtered['Coin'].map(lambda x: gecko_coinbase_currency_map.get(x, 'UNSUPPORTED'))
         filtered = filtered[filtered['Symbol'] != 'UNSUPPORTED']
@@ -61,26 +62,33 @@ class Buyer:
         quantity =  round(self.context['order_amount_usd'] / current_ask, 5)
         created_at = datetime.fromtimestamp(self.timesource.now(), timezone.utc)
 
-        Session = sessionmaker(bind=self.context['engine'])
-        session = Session()
+        bid = (current_ask + current_bid) / 2
 
-        print(f"Buying: {symbol} @ ${current_ask}, prediction: {selection['Max Delta']}%")
-        order = Order(
-            order_id=order_id,
-            coinbase_product_id=product_id,
-            quantity=quantity,
-            purchase_price=current_ask,
-            status="OPEN",
-            action="SELL",
-            stop_loss_percent=self.context['stop_loss_percent'],
-            profit_percent=self.context['take_profit_percent'],
-            predicted_max_delta=selection['Max Delta'],
-            predicted_min_delta=selection['Min Delta'],
-            purchase_time_spread_percent=spread,
-            created_at=created_at
-        )
-        session.add(order)
-        session.commit()
-        session.close()
+        print(f"Buying: {symbol} @ ${bid}, prediction: {selection['Max Delta']}%")
+        
+        base_size = self.broker.buy(order_id, product_id, self.context['order_amount_usd'], bid)
+
+        if base_size > 0:
+            Session = sessionmaker(bind=self.context['engine'])
+            session = Session()
+            order = Order(
+                order_id=order_id,
+                coinbase_product_id=product_id,
+                quantity=base_size,
+                purchase_price=bid,
+                status="OPEN",
+                action="SELL",
+                stop_loss_percent=self.context['stop_loss_percent'],
+                profit_percent=self.context['take_profit_percent'],
+                predicted_max_delta=selection['Max Delta'],
+                predicted_min_delta=selection['Min Delta'],
+                purchase_time_spread_percent=spread,
+                created_at=created_at
+            )
+            session.add(order)
+            session.commit()
+            session.close()
+        else:
+            print("Buy error, cancelling")
 
         

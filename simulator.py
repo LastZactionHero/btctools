@@ -3,10 +3,10 @@ import os
 import pandas as pd
 import random
 from datetime import datetime
-from scripts.simulator.buyer import Buyer
+from scripts.trade.buyer import Buyer
 from scripts.simulator.prediction_cache import PredictionCache
-from scripts.simulator.seller import Seller
-from scripts.simulator.buyer_prediction_model import BuyerPredictionModel
+from scripts.trade.seller import Seller
+from scripts.trade.buyer_prediction_model import BuyerPredictionModel
 from scripts.simulator.coinbase_prices import CoinbasePrices
 from scripts.simulator.genetic_context_modifier import GeneticContextModifier
 from scripts.simulator.run_results import RunResults
@@ -108,7 +108,6 @@ for parameter_value in parameter_values:
     )
     buyer = Buyer(
         context=context,
-        data=data_crypto_exchange_rates,
         model=buyer_prediction_model,
         broker=broker,
         timesource=timesource,

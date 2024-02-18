@@ -47,23 +47,26 @@ class Seller():
         session.commit()
         session.close()        
 
-    def sell_order(self, order, best_bid):
-        Session = sessionmaker(bind=self.context['engine'])
-        session = Session()
-        order_to_update = session.get(Order, order.id)
-        
+    def sell_order(self, order, best_bid):        
         print(f"Selling: {order.coinbase_product_id}")
-        if(best_bid > order.purchase_price):
-            print("Selling for a profit!!!")
+        success = self.broker.sell(order.id, order.coinbase_product_id, order.quantity, best_bid)
+        if success:
+            Session = sessionmaker(bind=self.context['engine'])
+            session = Session()
+            order_to_update = session.get(Order, order.id)
+            if(best_bid > order.purchase_price):
+                print("Selling for a profit!!!")
+            else:
+                print("Selling for a loss :(")
+
+            timestamp_dt = datetime.fromtimestamp(self.timesource.now(), timezone.utc)
+
+            order_to_update.status = "SOLD"
+            order_to_update.sold_at = timestamp_dt
+            session.commit()
+            session.close()
         else:
-            print("Selling for a loss :(")
-
-        timestamp_dt = datetime.fromtimestamp(self.timesource.now(), timezone.utc)
-
-        order_to_update.status = "SOLD"
-        order_to_update.sold_at = timestamp_dt
-        session.commit()
-        session.close()
+            print("Sell error, cancelling")
 
     def set_recovery_mode(self, order, best_bid):
         Session = sessionmaker(bind=self.context['engine'])

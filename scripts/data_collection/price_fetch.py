@@ -39,7 +39,7 @@ def save_to_csv(timestamp, exchange_rates, filename, write_headers=False):
 
 
 if __name__ == "__main__":
-    filename = "crypto_exchange_rates.csv"
+    filename = "./data/crypto_exchange_rates.csv"
     ids = [
         "1inch",
         "aave",

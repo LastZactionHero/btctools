@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+from sympy import N
 
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
@@ -10,14 +11,14 @@ class BuyerPredictionModel:
     SEQUENCE_LOOKBEHIND_MINUTES = 240
     PREDICTION_LOOKAHEAD_MINUTES = 30
 
-    def __init__(self, data, timesource, cache=None):
-        self.data = data
-        self.data_no_timestamps = self.data.copy().drop("timestamp", axis=1)
+    def __init__(self, timesource, cache=None):
         self.model = load_model(self.MODEL_FILENAME)
         self.cache = cache
         self.timesource = timesource
 
-    def predict(self):
+    def predict(self, data, latest=False):
+        data_no_timestamps = data.copy().drop("timestamp", axis=1)
+
         if self.cache:
             model_name = os.path.basename(self.MODEL_FILENAME).split(".")[0]
             cached_predictions = self.cache.load_predictions_from_cache(model_name, self.timesource.now())
@@ -25,19 +26,22 @@ class BuyerPredictionModel:
                 return cached_predictions
 
         timestamp = self.timesource.now()
-        row_idx = self.find_row_idx(timestamp)
-        predictions = self.build_predictions(row_idx)
+
+        row_idx = len(data) - 1
+        if latest is not True:
+            row_idx = self.find_row_idx(data, timestamp)
+        predictions = self.build_predictions(data_no_timestamps, row_idx)
 
         if self.cache:
             model_name = os.path.basename(self.MODEL_FILENAME).split(".")[0]
             self.cache.save_to_cache(model_name, timestamp, predictions)
         return predictions
 
-    def find_row_idx(self, timestamp):
-        return self.data['timestamp'].searchsorted(timestamp) - 1
+    def find_row_idx(self, data, timestamp):
+        return data['timestamp'].searchsorted(timestamp) - 1
     
-    def build_predictions(self, row_idx):
-        predict_sequences = self.data_no_timestamps.loc[list(range(row_idx - self.SEQUENCE_LOOKBEHIND_MINUTES, row_idx, 1))]
+    def build_predictions(self, data_no_timestamps, row_idx):
+        predict_sequences = data_no_timestamps.loc[list(range(row_idx - self.SEQUENCE_LOOKBEHIND_MINUTES, row_idx, 1))]
 
         coins = []
         scalers = []
@@ -55,7 +59,7 @@ class BuyerPredictionModel:
 
         predictions = pd.DataFrame(columns=['Coin', 'Latest', 'Max', 'Max Delta', 'Min', 'Min Delta'])
         for i, ps in enumerate(predictions_scaled):
-            latest_price = self.data_no_timestamps.iloc[row_idx,i]
+            latest_price = data_no_timestamps.iloc[row_idx,i]
 
             unscaled = scalers[i].inverse_transform(ps.reshape(1, -1).T).flatten()
             p_max = unscaled.max()
