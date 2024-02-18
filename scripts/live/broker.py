@@ -32,14 +32,26 @@ class Broker():
     def buy(self, order_id, product_id, amount_usdc, highest_bid):
         product = self.client.get_product(product_id)
 
-        decimal_precision = len(product.base_increment.split(".")[1])
-        base_size = round(amount_usdc / highest_bid, decimal_precision)
+        base_decimal_precision = len(product.base_increment.split(".")[1])
+        base_size = round(amount_usdc / highest_bid, base_decimal_precision)
+
+        quote_decimal_precision = len(product.quote_increment.split("."))
+        bid = round(highest_bid, quote_decimal_precision)
+
+        print(f"{product_id}")
+        print(f"amount_usdc: {amount_usdc}")
+        print(f"highest_bid: {highest_bid}")
+        print(f"decimal_precision: {base_decimal_precision}")
+        print(f"base_size: {base_size}")
+        print(f"quote_decimal_precision {quote_decimal_precision}")
+        print(f"bid: {bid}")
+
         buy_order = self.client.create_limit_order(
             client_order_id=order_id,
             product_id=product_id,
             side=Side.BUY,
             base_size=base_size,
-            limit_price=highest_bid)
+            limit_price=bid)
         print(buy_order)
 
         if buy_order.order_error is None:
@@ -49,13 +61,14 @@ class Broker():
     def sell(self, order_id, product_id, amount_product, lowest_ask):
         product = self.client.get_product(product_id)
 
+        client_order_id = f"{product_id}_#{order_id}"
         symbol = product_id.split("-")[0]
         base_size = min(self.holding_available(symbol), amount_product)
 
         decimal_precision = len(product.base_increment.split(".")[1])
         base_size = round(base_size, decimal_precision)
         sell_order = self.client.create_limit_order(
-            client_order_id=order_id,
+            client_order_id=client_order_id,
             product_id=product_id,
             side=Side.SELL,
             base_size=base_size,

@@ -43,7 +43,7 @@ def buy(buyer):
 
 engine = init_db_engine(DB_FILENAME)
 context = {
-    "buy_interval_minutes": 10,
+    "buy_interval_minutes": 5,
     "run_duration_minutes": None,  # 7 * 24 * 60, # 5 days
     "raise_stoploss_threshold": 1.018,  # Sweep 3
     "sell_stoploss_floor": 0.00184,  # Sweep 1
