@@ -1,5 +1,6 @@
 import pandas as pd
 import time
+from sqlalchemy import and_
 from dotenv import load_dotenv
 from scripts.trade.buyer import Buyer
 from scripts.trade.seller import Seller
@@ -9,7 +10,7 @@ from scripts.live.timesource import Timesource
 from scripts.live.crypto_exchange_rates_fetcher import CryptoExchangeRatesFetcher
 from scripts.db.models import init_db_engine, Base
 from scripts.db.models import Order, sessionmaker
-from datetime import datetime
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -28,20 +29,18 @@ DB_FILENAME = "./db/live.db"
 engine = init_db_engine(DB_FILENAME)
 Session = sessionmaker(bind=engine)
 session = Session()
-order = Order(
-    order_id="PREP_007",
-    coinbase_product_id="BTRST-USDC",
-    quantity=11.02,
-    purchase_price=0.0918,
-    status="OPEN",
-    action="SELL",
-    stop_loss_percent=0.0782,
-    profit_percent=1.1,
-    predicted_max_delta=0.0,
-    predicted_min_delta=0.0,
-    purchase_time_spread_percent=0.0,
-    created_at=datetime.now()
-)
-session.add(order)
-session.commit()
+
+def order_summary(order):
+    return {
+        "symbol": order.coinbase_product_id.split("-")[0],
+        "ordered_at": order.created_at,
+        "status": order.status
+    }
+new_buys = session.query(Order).filter(and_(Order.status == "OPEN", Order.created_at > datetime.now() - timedelta(days=1))).all()
+new_sells = session.query(Order).filter(and_(Order.status == "SOLD", Order.sold_at > datetime.now() - timedelta(days=1))).all()
+
+print(list(map(order_summary, new_buys)))
+print(list(map(order_summary, new_sells)))
+
+
 session.close()
