@@ -48,7 +48,7 @@ class Broker:
             )
             return base_size
 
-        quote_decimal_precision = len(product.quote_increment.split("."))
+        quote_decimal_precision = len(product.quote_increment.split(".")[1])
         bid = round(highest_bid, quote_decimal_precision)
 
         self.logger.info(f"Buying {base_size} of {product_id} at {bid} per unit")
