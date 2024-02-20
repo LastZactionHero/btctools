@@ -1,12 +1,14 @@
 from sqlalchemy import and_
 from scripts.db.models import Order, sessionmaker
 from datetime import datetime, timezone
+import logging
 
 class Seller():
-    def __init__(self, context, broker, timesource):
+    def __init__(self, context, broker, timesource, logger):
         self.broker = broker
         self.context = context
         self.timesource = timesource
+        self.logger = logger
     
     def sell(self):
         orders = self.load_orders()
@@ -48,16 +50,16 @@ class Seller():
         session.close()        
 
     def sell_order(self, order, best_bid):        
-        print(f"Selling: {order.coinbase_product_id}")
+        self.logger.info(f"Selling: {order.coinbase_product_id}")
         success = self.broker.sell(order.id, order.coinbase_product_id, order.quantity, best_bid)
         if success:
             Session = sessionmaker(bind=self.context['engine'])
             session = Session()
             order_to_update = session.get(Order, order.id)
             if(best_bid > order.purchase_price):
-                print("Selling for a profit!!!")
+                self.logger.info("Selling for a profit!!!")
             else:
-                print("Selling for a loss :(")
+                self.logger.info("Selling for a loss :(")
 
             timestamp_dt = datetime.fromtimestamp(self.timesource.now(), timezone.utc)
 
@@ -66,7 +68,7 @@ class Seller():
             session.commit()
             session.close()
         else:
-            print("Sell error, cancelling")
+            self.logger.error("Sell error, cancelling")
 
     def set_recovery_mode(self, order, best_bid):
         Session = sessionmaker(bind=self.context['engine'])
@@ -105,7 +107,7 @@ class Seller():
         # Timezones, FML
         created_minutes_ago = (self.timesource.now() - (order.created_at.timestamp() - (7 * 60 * 60))) / 60
         if created_minutes_ago < 0:
-            import pdb; pdb.set_trace()
+            self.logger.warning("Negative time delta encountered.")
         if self.context['loss_recovery_after_minutes'] is not None and created_minutes_ago > self.context['loss_recovery_after_minutes'] and order.recovery_mode == False:
             return True
         return False

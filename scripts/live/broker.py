@@ -6,7 +6,9 @@ from scripts.trade.coingecko_coinbase_pairs import gecko_coinbase_currency_map
 from scripts.live.prices import Prices
 
 class Broker():
-    def __init__(self):
+    def __init__(self, logger):
+        self.logger = logger
+
         api_key_name = os.getenv("COINBASE_API_KEY_NAME")
         private_key = os.getenv("COINBASE_PRIVATE_KEY")
 
@@ -17,7 +19,7 @@ class Broker():
         try:
             self.client = CoinbaseAdvancedTradeAPIClient.from_cloud_api_keys(api_key_name, private_key)
         except Exception as e:
-            print(f"Failed to initialize the Coinbase Advanced Trade API Client: {e}")
+            self.logger.error(f"Failed to initialize the Coinbase Advanced Trade API Client: {e}")
             sys.exit(1)
 
     def usdc_available(self):
@@ -38,13 +40,7 @@ class Broker():
         quote_decimal_precision = len(product.quote_increment.split("."))
         bid = round(highest_bid, quote_decimal_precision)
 
-        print(f"{product_id}")
-        print(f"amount_usdc: {amount_usdc}")
-        print(f"highest_bid: {highest_bid}")
-        print(f"decimal_precision: {base_decimal_precision}")
-        print(f"base_size: {base_size}")
-        print(f"quote_decimal_precision {quote_decimal_precision}")
-        print(f"bid: {bid}")
+        self.logger.info(f"Buying {base_size} of {product_id} at {bid} per unit")
 
         buy_order = self.client.create_limit_order(
             client_order_id=order_id,
@@ -52,7 +48,8 @@ class Broker():
             side=Side.BUY,
             base_size=base_size,
             limit_price=bid)
-        print(buy_order)
+
+        self.logger.info(f"Buy order status: {buy_order}")
 
         if buy_order.order_error is None:
             return base_size
@@ -73,7 +70,9 @@ class Broker():
             side=Side.SELL,
             base_size=base_size,
             limit_price=lowest_ask)
-        print(sell_order)
+
+        self.logger.info(f"Sell order status: {sell_order}")
+
         return sell_order.order_error is None
 
     def order_status(self, order_id):
@@ -86,7 +85,7 @@ class Broker():
         if self.prices_cached is not None and (datetime.now() - self.last_price_fetch_at).total_seconds() < 10:
             return self.prices_cached
 
-        print("Fetching prices!")
+        self.logger.info("Fetching prices!")
         symbols = list(filter(lambda s: s != 'UNSUPPORTED', gecko_coinbase_currency_map.values()))
         products = list(map(lambda s: "{}-USDC".format(s), symbols))
         
@@ -94,6 +93,7 @@ class Broker():
         
         self.prices_cached = Prices(bids, asks)
         self.last_price_fetch_at = datetime.now()
+
         return self.prices_cached
     
     def _fetch_current_prices(self, product_ids):

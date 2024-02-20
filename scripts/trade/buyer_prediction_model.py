@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 from sympy import N
+import logging
 
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
@@ -11,10 +12,11 @@ class BuyerPredictionModel:
     SEQUENCE_LOOKBEHIND_MINUTES = 240
     PREDICTION_LOOKAHEAD_MINUTES = 30
 
-    def __init__(self, timesource, cache=None):
+    def __init__(self, timesource, logger, cache=None):
         self.model = load_model(self.MODEL_FILENAME)
         self.cache = cache
         self.timesource = timesource
+        self.logger = logger
 
     def predict(self, data, latest=False):
         data_no_timestamps = data.copy().drop("timestamp", axis=1)
@@ -23,6 +25,7 @@ class BuyerPredictionModel:
             model_name = os.path.basename(self.MODEL_FILENAME).split(".")[0]
             cached_predictions = self.cache.load_predictions_from_cache(model_name, self.timesource.now())
             if cached_predictions is not None:
+                self.logger.info("Loaded predictions from cache.")
                 return cached_predictions
 
         timestamp = self.timesource.now()
@@ -35,6 +38,8 @@ class BuyerPredictionModel:
         if self.cache:
             model_name = os.path.basename(self.MODEL_FILENAME).split(".")[0]
             self.cache.save_to_cache(model_name, timestamp, predictions)
+            self.logger.info("Saved predictions to cache.")
+
         return predictions
 
     def find_row_idx(self, data, timestamp):
@@ -81,4 +86,7 @@ class BuyerPredictionModel:
             predictions = pd.concat([predictions, row])
 
         predictions = predictions.sort_values(by="Max Delta", ascending=False)
+
+        self.logger.info("Predictions built successfully.")
+
         return predictions

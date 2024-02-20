@@ -7,7 +7,7 @@ IDEAS:
 - Auto-lower stop loss 
 
 Data: 144.202.24.235
-Magpie: 108.61.193.193
+Magpie: 45.63.61.60
 
 ## Setup
 

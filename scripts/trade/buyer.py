@@ -5,19 +5,21 @@ from sqlalchemy import and_
 from scripts.trade.coingecko_coinbase_pairs import gecko_coinbase_currency_map
 
 class Buyer:
-    def __init__(self, context, model, broker, timesource):
+    def __init__(self, context, model, broker, timesource, logger):
         self.context = context
         self.model = model
         self.broker = broker
         self.timesource = timesource
+        self.logger = logger
     
     def buy(self, price_data, latest):
         predictions = self.model.predict(price_data, latest)
-        print(predictions)
+        self.logger.info("Predictions:")
+        self.logger.info(predictions)
         filtered_predictions = self.filter_predictions(predictions)
 
         if len(filtered_predictions) == 0:
-            print("Nothing to buy...")
+            self.logger.info("Nothing to buy...")
             return
 
         if self.context['single_buy'] == True:
@@ -37,18 +39,15 @@ class Buyer:
 
         return filtered
 
-
     def current_spread(self, prediction):
         prices = self.broker.prices()
 
         symbol = prediction['Symbol']
         current_ask = prices.ask(symbol)
         current_bid = prices.bid(symbol)
-        return (current_ask - current_bid) / current_bid
+        spread = (current_ask - current_bid) / current_bid
+        return spread
         
-    def select_buy(self, predictions):
-         return predictions.sample(n=1).iloc[0]
-    
     def create_order(self, selection):
         prices = self.broker.prices()
 
@@ -64,7 +63,7 @@ class Buyer:
 
         bid = (current_ask + current_bid) / 2
 
-        print(f"Buying: {symbol} @ ${bid}, prediction: {selection['Max Delta']}%")
+        self.logger.info(f"Buying: {symbol} @ ${bid}, prediction: {selection['Max Delta']}%")
         
         base_size = self.broker.buy(order_id, product_id, self.context['order_amount_usd'], bid)
 
@@ -88,7 +87,6 @@ class Buyer:
             session.add(order)
             session.commit()
             session.close()
+            self.logger.info("Order created successfully.")
         else:
-            print("Buy error, cancelling")
-
-        
+            self.logger.error("Buy error, cancelling")

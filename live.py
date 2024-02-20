@@ -1,5 +1,6 @@
 import pandas as pd
 import time
+import logging
 from dotenv import load_dotenv
 from scripts.trade.buyer import Buyer
 from scripts.trade.seller import Seller
@@ -14,13 +15,23 @@ FILENAME_CRYPTO_EXCHANGE_RATES = "./data/crypto_exchange_rates.csv"
 CRYPTO_EXCHANGE_RATES_URL = "http://144.202.24.235/crypto_exchange_rates.csv"
 MAX_CSV_LATENCY_MIN = 5
 
+# Setup basic configuration for logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s [%(levelname)s] %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    filename='./logs/live.log',  # Example path on Debian
+                    filemode='a')  # Append mode
+
+# Creating logger object
+logger = logging.getLogger('LiveLogger')
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
+
 load_dotenv()
 
-# TODO:
-# Remove prediction flitering
-
 def buy(buyer):
-    fetcher = CryptoExchangeRatesFetcher(CRYPTO_EXCHANGE_RATES_URL, FILENAME_CRYPTO_EXCHANGE_RATES)
+    fetcher = CryptoExchangeRatesFetcher(CRYPTO_EXCHANGE_RATES_URL, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
 
     data_crypto_exchange_rates = fetcher.fetch(cached=False)
     data_crypto_exchange_rates = pd.read_csv(FILENAME_CRYPTO_EXCHANGE_RATES)
@@ -37,21 +48,20 @@ def buy(buyer):
     if time_diff_minutes <= MAX_CSV_LATENCY_MIN:
         buyer.buy(data_crypto_exchange_rates, latest=True)
     else:
-        print(f"Error: Data timestamp too old: {time_diff_minutes} minutes")
-
+        logger.error(f"Data timestamp too old: {time_diff_minutes} minutes")
 
 
 engine = init_db_engine(DB_FILENAME)
 context = {
     "buy_interval_minutes": 5,
-    "run_duration_minutes": None,  # 7 * 24 * 60, # 5 days
-    "raise_stoploss_threshold": 1.018,  # Sweep 3
-    "sell_stoploss_floor": 0.00184,  # Sweep 1
+    "run_duration_minutes": None,
+    "raise_stoploss_threshold": 1.018,
+    "sell_stoploss_floor": 0.00184,
     "order_amount_usd": 50.0,
-    "stop_loss_percent": 0.0782,  # Sweep 2
+    "stop_loss_percent": 0.0782,
     "take_profit_percent": 1.1,
-    "max_delta": 4.3012,  # Sweep 4
-    "max_spread": 1.0,  # Sweep 5
+    "max_delta": 4.3012,
+    "max_spread": 1.0,
     "sell_all_on_hit": False,
     "loss_recovery_after_minutes": 4 * 24 * 60,
     "single_buy": True,
@@ -60,18 +70,18 @@ context = {
 Base.metadata.create_all(context["engine"])
 
 timesource = Timesource()
-broker = Broker()
-seller = Seller(context=context, broker=broker, timesource=timesource)
+broker = Broker(logger=logger)
+seller = Seller(context=context, broker=broker, timesource=timesource, logger=logger)
 
-buyer_prediction_model = BuyerPredictionModel(timesource)
-buyer = Buyer(context=context, model=buyer_prediction_model, broker=broker, timesource=timesource)
+buyer_prediction_model = BuyerPredictionModel(timesource, logger=logger)
+buyer = Buyer(context=context, model=buyer_prediction_model, broker=broker, timesource=timesource, logger=logger)
 
 last_buy_timestamp = 0
 
 while True:
     try:
-        print(f"{timesource.now()}")
-        print(f"${broker.usdc_available()} USDC")
+        logger.info(f"{timesource.now()}")
+        logger.info(f"${broker.usdc_available()} USDC")
 
         if last_buy_timestamp == 0 or ((timesource.now() - last_buy_timestamp) > context[
             "buy_interval_minutes"
@@ -80,9 +90,10 @@ while True:
             if broker.usdc_available() > context['order_amount_usd']:
                 buy(buyer)
             else:
-                print("Out of money!")
+                logger.info("Out of money!")
 
         seller.sell()
     except Exception as e:
-        print(e)
+        logger.error(e)
     time.sleep(10)
+
