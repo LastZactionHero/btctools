@@ -89,6 +89,7 @@ while True:
 
         if last_coingecko_timestamp == 0 or ((timesource.now() - last_coingecko_timestamp) > 60):
             coingecko_csv_updater.fetch_and_update()
+            last_coingecko_timestamp = timesource.now()
 
         if last_buy_timestamp == 0 or ((timesource.now() - last_buy_timestamp) > context[
             "buy_interval_minutes"
