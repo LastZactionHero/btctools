@@ -15,12 +15,34 @@ import logging
 
 load_dotenv()
 
-logger = logging.getLogger('LiveLogger')
-broker = Broker(logger, {'live_trades': True})
+engine = init_db_engine("./db/live.db")
+Session = sessionmaker(bind=engine)
+session = Session()
 
-print(broker.usdc_available())
+# Assuming your Orders table is mapped to a class named 'Order'
+session.query(Order).filter(Order.id.in_([13, 14, 15, 16, 17])).delete()
+session.commit()  # Important: Commit the changes
+session.close()
+#engine = init_db_engine("./db/live.db")
+#Session = sessionmaker(bind=engine)
+#session = Session()
 
-broker.buy("PREP_001", "GFI-USDC", 50, 1.2834)
+#orders_to_delete = session.query(Order).filter(Order.id.in_([13, 14, 15, 16, 17]))
+
+# Delete the queried records
+#session.delete(orders_to_delete)
+
+# Commit the changes to the database
+#session.commit()
+#
+#session.close()
+
+#logger = logging.getLogger('LiveLogger')
+#broker = Broker(logger, {'live_trades': True})
+
+#print(broker.usdc_available())
+
+#b#roker.buy("PREP_001", "GFI-USDC", 50, 1.2834)
 # broker.sell("PREP_002", "BADGER-USDC", 1, 4.36)
 # prices = broker.prices()
 # ask = prices.ask("BTRST")

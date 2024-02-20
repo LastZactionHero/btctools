@@ -89,7 +89,7 @@ def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, 
 
 engine = init_db_engine(DB_FILENAME)
 context = {
-    "buy_interval_minutes": 5,
+    "buy_interval_minutes": 10,
     "run_duration_minutes": None,
     "raise_stoploss_threshold": 1.018,
     "sell_stoploss_floor": 0.00184,
