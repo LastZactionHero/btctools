@@ -135,8 +135,7 @@ while True:
         ] * 60):
             last_buy_timestamp = timesource.now()
             if broker.usdc_available() > context['order_amount_usd']:
-                # buy(buyer)
-                pass
+                buy(buyer)
             else:
                 logger.info("Out of money!")
 
