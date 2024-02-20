@@ -2,12 +2,14 @@ import pandas as pd
 import time
 import logging
 from dotenv import load_dotenv
+from scripts.data_collection import coingecko_csv_updater
+from scripts.data_collection.coingecko_csv_updater import CoingeckoCsvUpdater
 from scripts.trade.buyer import Buyer
 from scripts.trade.seller import Seller
 from scripts.trade.buyer_prediction_model import BuyerPredictionModel
 from scripts.live.broker import Broker
 from scripts.live.timesource import Timesource
-from scripts.live.crypto_exchange_rates_fetcher import CryptoExchangeRatesFetcher
+from scripts.live.full_coingecko_csv_fetcher import FullCoingeckoCSVFetcher
 from scripts.db.models import init_db_engine, Base
 
 DB_FILENAME = "./db/live.db"
@@ -31,9 +33,6 @@ logger.addHandler(console_handler)
 load_dotenv()
 
 def buy(buyer):
-    fetcher = CryptoExchangeRatesFetcher(CRYPTO_EXCHANGE_RATES_URL, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
-
-    data_crypto_exchange_rates = fetcher.fetch(cached=False)
     data_crypto_exchange_rates = pd.read_csv(FILENAME_CRYPTO_EXCHANGE_RATES)
     
     # Check the last timestamp in the DataFrame
@@ -75,20 +74,29 @@ seller = Seller(context=context, broker=broker, timesource=timesource, logger=lo
 
 buyer_prediction_model = BuyerPredictionModel(timesource, logger=logger)
 buyer = Buyer(context=context, model=buyer_prediction_model, broker=broker, timesource=timesource, logger=logger)
-
 last_buy_timestamp = 0
+
+fetcher = FullCoingeckoCSVFetcher(CRYPTO_EXCHANGE_RATES_URL, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
+data_crypto_exchange_rates = fetcher.fetch(cached=False)
+last_coingecko_timestamp = timesource.now()
+
+coingecko_csv_updater = CoingeckoCsvUpdater(timesource, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
 
 while True:
     try:
         logger.info(f"{timesource.now()}")
         logger.info(f"${broker.usdc_available()} USDC")
 
+        if last_coingecko_timestamp == 0 or ((timesource.now() - last_coingecko_timestamp) > 60):
+            coingecko_csv_updater.fetch_and_update()
+
         if last_buy_timestamp == 0 or ((timesource.now() - last_buy_timestamp) > context[
             "buy_interval_minutes"
         ] * 60):
             last_buy_timestamp = timesource.now()
             if broker.usdc_available() > context['order_amount_usd']:
-                buy(buyer)
+                # buy(buyer)
+                pass
             else:
                 logger.info("Out of money!")
 

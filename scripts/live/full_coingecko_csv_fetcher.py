@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 
-class CryptoExchangeRatesFetcher:
+class FullCoingeckoCSVFetcher:
     def __init__(self, url, filename, logger):
         self.url = url
         self.filename = filename
