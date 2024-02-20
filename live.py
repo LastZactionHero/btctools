@@ -2,6 +2,8 @@ import pandas as pd
 import time
 import logging
 from dotenv import load_dotenv
+import json
+import datetime
 from scripts.data_collection import coingecko_csv_updater
 from scripts.data_collection.coingecko_csv_updater import CoingeckoCsvUpdater
 from scripts.trade.buyer import Buyer
@@ -10,10 +12,14 @@ from scripts.trade.buyer_prediction_model import BuyerPredictionModel
 from scripts.live.broker import Broker
 from scripts.live.timesource import Timesource
 from scripts.live.full_coingecko_csv_fetcher import FullCoingeckoCSVFetcher
-from scripts.db.models import init_db_engine, Base
+from scripts.db.models import init_db_engine, Base, Order
+from sqlalchemy.orm import sessionmaker
+import json
+import copy
 
 DB_FILENAME = "./db/live.db"
 FILENAME_CRYPTO_EXCHANGE_RATES = "./data/crypto_exchange_rates.csv"
+FILENAME_STATUS_JSON = './logs/status.json'
 CRYPTO_EXCHANGE_RATES_URL = "http://144.202.24.235/crypto_exchange_rates.csv"
 MAX_CSV_LATENCY_MIN = 5
 
@@ -49,6 +55,34 @@ def buy(buyer):
     else:
         logger.error(f"Data timestamp too old: {time_diff_minutes} minutes")
 
+def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, context):
+    Session = sessionmaker(bind=context['engine'])
+    session = Session()
+    orders = session.query(Order).all()
+    orders_grouped = {
+        'open': [order.to_dict() for order in orders if order.status == 'OPEN'],
+        'sold': [order.to_dict() for order in orders if order.status == 'SOLD']
+    }
+    session.close()
+
+    # Create a dictionary with the required data
+    status_info = {
+        'timestamp': timesource.now(),
+        'last_buy_timestamp': last_buy_timestamp,
+        'last_coingecko_timestamp': last_coingecko_timestamp,
+        'orders': orders_grouped,
+        'context': {k: v for k, v in context.items() if k != 'engine'}
+    }
+
+    # Convert the dictionary to a JSON string with indentation
+    status_info_json = json.dumps(status_info, indent=4)
+
+    # Print the JSON string
+    logger.info(status_info_json)
+
+    # Save the JSON string to a file
+    with open(FILENAME_STATUS_JSON, 'w') as f:
+        f.write(status_info_json)
 
 engine = init_db_engine(DB_FILENAME)
 context = {
@@ -64,12 +98,13 @@ context = {
     "sell_all_on_hit": False,
     "loss_recovery_after_minutes": 4 * 24 * 60,
     "single_buy": True,
+    "live_trades": True,
     "engine": engine,
 }
 Base.metadata.create_all(context["engine"])
 
 timesource = Timesource()
-broker = Broker(logger=logger)
+broker = Broker(logger=logger, context=context)
 seller = Seller(context=context, broker=broker, timesource=timesource, logger=logger)
 
 buyer_prediction_model = BuyerPredictionModel(timesource, logger=logger)
@@ -96,11 +131,14 @@ while True:
         ] * 60):
             last_buy_timestamp = timesource.now()
             if broker.usdc_available() > context['order_amount_usd']:
-                buy(buyer)
+                # buy(buyer)
+                pass
             else:
                 logger.info("Out of money!")
 
         seller.sell()
+
+        print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, context)
     except Exception as e:
         logger.error(e)
     time.sleep(10)

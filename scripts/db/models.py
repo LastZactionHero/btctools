@@ -43,6 +43,33 @@ class Order(Base):
     live_ordered = Column(Boolean, default=False)
     live_sold = Column(Boolean, default=False)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'order_id': self.order_id,
+            'status': self.status,
+            'action': self.action,
+            'coinbase_product_id': self.coinbase_product_id,
+            'quantity': self.quantity,
+            'purchase_price': self.purchase_price,
+            'purchase_time_spread_percent': self.purchase_time_spread_percent,
+            'stop_loss_percent': self.stop_loss_percent,
+            'profit_percent': self.profit_percent,
+            'predicted_max_delta': self.predicted_max_delta,
+            'predicted_min_delta': self.predicted_min_delta,
+            'num_predictions_over_hit': self.num_predictions_over_hit,
+            'max_delta_average': self.max_delta_average,
+            'max_delta_std': self.max_delta_std,
+            'min_delta_average': self.min_delta_average,
+            'min_delta_std': self.min_delta_std,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'sold_at': self.sold_at.strftime('%Y-%m-%d %H:%M:%S') if self.sold_at else None,
+            'recovery_mode': self.recovery_mode,
+            'recovery_set': self.recovery_set,
+            'live_ordered': self.live_ordered,
+            'live_sold': self.live_sold
+        }
+
 class SimulatedHolding(Base):
     __tablename__ = 'simulated_holding'
 
