@@ -4,6 +4,7 @@ import logging
 from dotenv import load_dotenv
 from scripts.data_collection import coingecko_csv_updater
 from scripts.data_collection.coingecko_csv_updater import CoingeckoCsvUpdater
+from scripts.trade import status_dumper
 from scripts.trade.buyer import Buyer
 from scripts.trade.seller import Seller
 from scripts.trade.buyer_prediction_model import BuyerPredictionModel
@@ -11,6 +12,7 @@ from scripts.live.broker import Broker
 from scripts.live.timesource import Timesource
 from scripts.live.full_coingecko_csv_fetcher import FullCoingeckoCSVFetcher
 from scripts.db.models import init_db_engine, Base
+from scripts.trade.status_dumper import StatusDumper
 
 DB_FILENAME = "./db/live.db"
 FILENAME_CRYPTO_EXCHANGE_RATES = "./data/crypto_exchange_rates.csv"
@@ -77,10 +79,12 @@ buyer = Buyer(context=context, model=buyer_prediction_model, broker=broker, time
 last_buy_timestamp = 0
 
 fetcher = FullCoingeckoCSVFetcher(CRYPTO_EXCHANGE_RATES_URL, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
-data_crypto_exchange_rates = fetcher.fetch(cached=False)
+# data_crypto_exchange_rates = fetcher.fetch(cached=False)
 last_coingecko_timestamp = timesource.now()
 
 coingecko_csv_updater = CoingeckoCsvUpdater(timesource, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
+
+status_dumper = StatusDumper(context)
 
 while True:
     try:
@@ -103,5 +107,7 @@ while True:
         seller.sell()
     except Exception as e:
         logger.error(e)
+    
+    print(status_dumper.status_dump(timesource.now(), last_buy_timestamp))
     time.sleep(10)
 
