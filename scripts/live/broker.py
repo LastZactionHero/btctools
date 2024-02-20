@@ -29,10 +29,10 @@ class Broker:
             sys.exit(1)
 
     def usdc_available(self):
-        return self._holdings()["USDC"]
+        return self.holdings()["USDC"]
 
     def holding_available(self, symbol):
-        holdings = self._holdings()
+        holdings = self.holdings()
         if symbol in holdings:
             return holdings[symbol]
         return 0
@@ -136,7 +136,7 @@ class Broker:
             asks[pricebook.product_id] = float(pricebook.asks[0].price)
         return asks, bids
 
-    def _holdings(self):
+    def holdings(self):
         h = {}
 
         def process_account(account):

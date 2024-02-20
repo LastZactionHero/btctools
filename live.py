@@ -55,7 +55,7 @@ def buy(buyer):
     else:
         logger.error(f"Data timestamp too old: {time_diff_minutes} minutes")
 
-def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, context):
+def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, usdc_available, prices, holdings, context):
     Session = sessionmaker(bind=context['engine'])
     session = Session()
     orders = session.query(Order).all()
@@ -70,6 +70,9 @@ def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, 
         'timestamp': timesource.now(),
         'last_buy_timestamp': last_buy_timestamp,
         'last_coingecko_timestamp': last_coingecko_timestamp,
+        'usdc_available': usdc_available,
+        'holdings': holdings,
+        'prices': prices.to_dict(),
         'orders': orders_grouped,
         'context': {k: v for k, v in context.items() if k != 'engine'}
     }
@@ -77,8 +80,8 @@ def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, 
     # Convert the dictionary to a JSON string with indentation
     status_info_json = json.dumps(status_info, indent=4)
 
-    # Print the JSON string
-    logger.info(status_info_json)
+    # # Print the JSON string
+    # logger.info(status_info_json)
 
     # Save the JSON string to a file
     with open(FILENAME_STATUS_JSON, 'w') as f:
@@ -120,7 +123,8 @@ coingecko_csv_updater = CoingeckoCsvUpdater(timesource, FILENAME_CRYPTO_EXCHANGE
 while True:
     try:
         logger.info(f"{timesource.now()}")
-        logger.info(f"${broker.usdc_available()} USDC")
+        usdc_available = broker.usdc_available()
+        logger.info(f"${usdc_available} USDC")
 
         if last_coingecko_timestamp == 0 or ((timesource.now() - last_coingecko_timestamp) > 60):
             coingecko_csv_updater.fetch_and_update()
@@ -138,7 +142,7 @@ while True:
 
         seller.sell()
 
-        print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, context)
+        print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, usdc_available, broker.prices(), broker.holdings(), context)
     except Exception as e:
         logger.error(e)
     time.sleep(10)

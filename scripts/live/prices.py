@@ -8,3 +8,9 @@ class Prices:
     
     def bid(self, symbol):
         return self.bids[f"{symbol}-USDC"]
+
+    def to_dict(self):
+        return {
+            'bids': self.bids,
+            'asks': self.asks
+        }
