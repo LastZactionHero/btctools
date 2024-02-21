@@ -89,7 +89,7 @@ def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, 
 
 engine = init_db_engine(DB_FILENAME)
 context = {
-    "buy_interval_minutes": 10,
+    "buy_interval_minutes": 5,
     "run_duration_minutes": None,
     "raise_stoploss_threshold": 1.018,
     "sell_stoploss_floor": 0.00184,
@@ -144,5 +144,5 @@ while True:
         print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, usdc_available, broker.prices(), broker.holdings(), context)
     except Exception as e:
         logger.error(e)
-    time.sleep(10)
+    time.sleep(2)
 
