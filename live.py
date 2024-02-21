@@ -13,40 +13,45 @@ from scripts.live.broker import Broker
 from scripts.live.timesource import Timesource
 from scripts.live.full_coingecko_csv_fetcher import FullCoingeckoCSVFetcher
 from scripts.db.models import init_db_engine, Base, Order
+from scripts.trade.dump_status_info import DumpStatusInfo
 from sqlalchemy.orm import sessionmaker
 import json
 import copy
 
 DB_FILENAME = "./db/live.db"
 FILENAME_CRYPTO_EXCHANGE_RATES = "./data/crypto_exchange_rates.csv"
-FILENAME_STATUS_JSON = './logs/status.json'
+FILENAME_STATUS_JSON = "./logs/status.json"
+FILENAME_STATUS_HTML = "./logs/status.html"
 CRYPTO_EXCHANGE_RATES_URL = "http://144.202.24.235/crypto_exchange_rates.csv"
 MAX_CSV_LATENCY_MIN = 5
 
 # Setup basic configuration for logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s [%(levelname)s] %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    filename='./logs/live.log',  # Example path on Debian
-                    filemode='a')  # Append mode
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    filename="./logs/live.log",  # Example path on Debian
+    filemode="a",
+)  # Append mode
 
 # Creating logger object
-logger = logging.getLogger('LiveLogger')
+logger = logging.getLogger("LiveLogger")
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 logger.addHandler(console_handler)
 
 load_dotenv()
 
+
 def buy(buyer):
     data_crypto_exchange_rates = pd.read_csv(FILENAME_CRYPTO_EXCHANGE_RATES)
-    
+
     # Check the last timestamp in the DataFrame
-    last_timestamp = int(data_crypto_exchange_rates['timestamp'].iloc[-1])
-    
+    last_timestamp = int(data_crypto_exchange_rates["timestamp"].iloc[-1])
+
     # Get the current timestamp using timesource.now()
     current_timestamp = timesource.now()
-    
+
     # Calculate the time difference in minutes
     time_diff_minutes = (current_timestamp - last_timestamp) / 60
 
@@ -55,37 +60,6 @@ def buy(buyer):
     else:
         logger.error(f"Data timestamp too old: {time_diff_minutes} minutes")
 
-def print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, usdc_available, prices, holdings, context):
-    Session = sessionmaker(bind=context['engine'])
-    session = Session()
-    orders = session.query(Order).all()
-    orders_grouped = {
-        'open': [order.to_dict() for order in orders if order.status == 'OPEN'],
-        'sold': [order.to_dict() for order in orders if order.status == 'SOLD']
-    }
-    session.close()
-
-    # Create a dictionary with the required data
-    status_info = {
-        'timestamp': timesource.now(),
-        'last_buy_timestamp': last_buy_timestamp,
-        'last_coingecko_timestamp': last_coingecko_timestamp,
-        'usdc_available': usdc_available,
-        'holdings': holdings,
-        'prices': prices.to_dict(),
-        'orders': orders_grouped,
-        'context': {k: v for k, v in context.items() if k != 'engine'}
-    }
-
-    # Convert the dictionary to a JSON string with indentation
-    status_info_json = json.dumps(status_info, indent=4)
-
-    # # Print the JSON string
-    # logger.info(status_info_json)
-
-    # Save the JSON string to a file
-    with open(FILENAME_STATUS_JSON, 'w') as f:
-        f.write(status_info_json)
 
 engine = init_db_engine(DB_FILENAME)
 context = {
@@ -111,14 +85,24 @@ broker = Broker(logger=logger, context=context)
 seller = Seller(context=context, broker=broker, timesource=timesource, logger=logger)
 
 buyer_prediction_model = BuyerPredictionModel(timesource, logger=logger)
-buyer = Buyer(context=context, model=buyer_prediction_model, broker=broker, timesource=timesource, logger=logger)
+buyer = Buyer(
+    context=context,
+    model=buyer_prediction_model,
+    broker=broker,
+    timesource=timesource,
+    logger=logger,
+)
 last_buy_timestamp = 0
 
-fetcher = FullCoingeckoCSVFetcher(CRYPTO_EXCHANGE_RATES_URL, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
+fetcher = FullCoingeckoCSVFetcher(
+    CRYPTO_EXCHANGE_RATES_URL, FILENAME_CRYPTO_EXCHANGE_RATES, logger
+)
 data_crypto_exchange_rates = fetcher.fetch(cached=False)
 last_coingecko_timestamp = timesource.now()
 
-coingecko_csv_updater = CoingeckoCsvUpdater(timesource, FILENAME_CRYPTO_EXCHANGE_RATES, logger)
+coingecko_csv_updater = CoingeckoCsvUpdater(
+    timesource, FILENAME_CRYPTO_EXCHANGE_RATES, logger
+)
 
 while True:
     try:
@@ -126,23 +110,34 @@ while True:
         usdc_available = broker.usdc_available()
         logger.info(f"${usdc_available} USDC")
 
-        if last_coingecko_timestamp == 0 or ((timesource.now() - last_coingecko_timestamp) > 60):
+        if last_coingecko_timestamp == 0 or (
+            (timesource.now() - last_coingecko_timestamp) > 60
+        ):
             coingecko_csv_updater.fetch_and_update()
             last_coingecko_timestamp = timesource.now()
 
-        if last_buy_timestamp == 0 or ((timesource.now() - last_buy_timestamp) > context[
-            "buy_interval_minutes"
-        ] * 60):
+        if last_buy_timestamp == 0 or (
+            (timesource.now() - last_buy_timestamp)
+            > context["buy_interval_minutes"] * 60
+        ):
             last_buy_timestamp = timesource.now()
-            if broker.usdc_available() > context['order_amount_usd']:
+            if broker.usdc_available() > context["order_amount_usd"]:
                 buy(buyer)
             else:
                 logger.info("Out of money!")
 
         seller.sell()
 
-        print_status_info(timesource, last_buy_timestamp, last_coingecko_timestamp, usdc_available, broker.prices(), broker.holdings(), context)
+        status_dump = DumpStatusInfo(FILENAME_STATUS_JSON, FILENAME_STATUS_HTML)
+        status_dump.save_status_info(
+            timesource,
+            last_buy_timestamp,
+            last_coingecko_timestamp,
+            usdc_available,
+            broker.prices(),
+            broker.holdings(),
+            context,
+        )
     except Exception as e:
         logger.error(e)
     time.sleep(2)
-
