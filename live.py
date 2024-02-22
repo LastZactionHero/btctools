@@ -70,7 +70,7 @@ context = {
     "order_amount_usd": 50.0,
     "stop_loss_percent": 0.0782,
     "take_profit_percent": 1.1,
-    "max_delta": 4.3012,
+    "max_delta": 3.5, # 4.3012 default
     "max_spread": 1.0,
     "sell_all_on_hit": False,
     "loss_recovery_after_minutes": 4 * 24 * 60,
