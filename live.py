@@ -17,6 +17,7 @@ from scripts.trade.dump_status_info import DumpStatusInfo
 from sqlalchemy.orm import sessionmaker
 import json
 import copy
+import threading
 
 DB_FILENAME = "./db/live.db"
 FILENAME_CRYPTO_EXCHANGE_RATES = "./data/crypto_exchange_rates.csv"
@@ -63,7 +64,7 @@ def buy(buyer):
 
 engine = init_db_engine(DB_FILENAME)
 context = {
-    "buy_interval_minutes": 5,
+    "buy_interval_minutes": 2,
     "run_duration_minutes": None,
     "raise_stoploss_threshold": 1.018,
     "sell_stoploss_floor": 0.00184,
@@ -75,7 +76,7 @@ context = {
     "sell_all_on_hit": False,
     "loss_recovery_after_minutes": 4 * 24 * 60,
     "single_buy": True,
-    "live_trades": True,
+    "live_trades": False,
     "engine": engine,
 }
 Base.metadata.create_all(context["engine"])
@@ -104,40 +105,63 @@ coingecko_csv_updater = CoingeckoCsvUpdater(
     timesource, FILENAME_CRYPTO_EXCHANGE_RATES, logger
 )
 
-while True:
-    try:
-        logger.info(f"{timesource.now()}")
-        usdc_available = broker.usdc_available()
-        logger.info(f"${usdc_available} USDC")
 
-        if last_coingecko_timestamp == 0 or (
-            (timesource.now() - last_coingecko_timestamp) > 60
-        ):
-            coingecko_csv_updater.fetch_and_update()
-            last_coingecko_timestamp = timesource.now()
-
-        if last_buy_timestamp == 0 or (
-            (timesource.now() - last_buy_timestamp)
-            > context["buy_interval_minutes"] * 60
-        ):
-            last_buy_timestamp = timesource.now()
+# Buying
+def buy_thread():
+    while True:
+        try:
             if broker.usdc_available() > context["order_amount_usd"]:
                 buy(buyer)
             else:
                 logger.info("Out of money!")
+        except Exception as e:
+            logger.error(e)
+        time.sleep(context["buy_interval_minutes"] * 60)
 
-        seller.sell()
+buy_thread = threading.Thread(target=buy_thread)
+buy_thread.daemon = True
+buy_thread.start()
 
-        status_dump = DumpStatusInfo(FILENAME_STATUS_JSON, FILENAME_STATUS_HTML)
-        status_dump.save_status_info(
-            timesource,
-            last_buy_timestamp,
-            last_coingecko_timestamp,
-            usdc_available,
-            broker.prices(),
-            broker.holdings(),
-            context,
-        )
-    except Exception as e:
-        logger.error(e)
-    time.sleep(2)
+# Selling
+def sell_thread():
+    while True:
+        try:
+            logger.info(f"{timesource.now()}")
+            usdc_available = broker.usdc_available()
+            logger.info(f"${usdc_available} USDC")
+
+            seller.sell()
+
+            status_dump = DumpStatusInfo(FILENAME_STATUS_JSON, FILENAME_STATUS_HTML)
+            status_dump.save_status_info(
+                timesource,
+                last_buy_timestamp,
+                last_coingecko_timestamp,
+                usdc_available,
+                broker.prices(),
+                broker.holdings(),
+                context,
+            )
+        except Exception as e:
+            logger.error(e)
+        time.sleep(2)
+
+sell_thread = threading.Thread(target=sell_thread)
+sell_thread.daemon = True
+sell_thread.start()
+
+# Coingecko Update
+def coingecko_update_thread():
+    while True:
+        try:
+            coingecko_csv_updater.fetch_and_update()
+        except Exception as e:
+            logger.error(e)
+        time.sleep(60)
+
+coingecko_update_thread = threading.Thread(target=coingecko_update_thread)
+coingecko_update_thread.daemon = True
+coingecko_update_thread.start()
+
+while True:
+    time.sleep(1)
