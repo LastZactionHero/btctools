@@ -76,7 +76,7 @@ context = {
     "sell_all_on_hit": False,
     "loss_recovery_after_minutes": 4 * 24 * 60,
     "single_buy": True,
-    "live_trades": False,
+    "live_trades": True,
     "engine": engine,
 }
 Base.metadata.create_all(context["engine"])
