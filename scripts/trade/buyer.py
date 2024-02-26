@@ -16,7 +16,7 @@ class Buyer:
         predictions = self.model.predict(price_data, latest)
         self.logger.info("Predictions:")
         self.logger.info(predictions)
-        filtered_predictions = self.filter_predictions(predictions)
+        filtered_predictions = self.filter_predictions(price_data, predictions)
 
         if len(filtered_predictions) == 0:
             self.logger.info("Nothing to buy...")
@@ -29,14 +29,23 @@ class Buyer:
             for idx, row in filtered_predictions.iterrows():
                 self.create_order(row)
 
-    def filter_predictions(self, predictions):
+    def min_time_above_threshold(self, price_data, row):
+        latest_price = row['Latest']
+        coin = row['Coin']
+
+        prior_prices = price_data[coin][0-self.context['time_above_minutes_to_review']:-1][price_data[coin] > latest_price]
+        time_above =  100 * float(len(prior_prices)) / self.context['time_above_minutes_to_review']
+        return time_above > self.context['time_above_threshold']
+
+    def filter_predictions(self, price_data, predictions):
         filtered = predictions.copy()
         
         filtered = filtered[filtered['Mean Delta'] > self.context['max_delta']]
         filtered['Symbol'] = filtered['Coin'].map(lambda x: gecko_coinbase_currency_map.get(x, 'UNSUPPORTED'))
         filtered = filtered[filtered['Symbol'] != 'UNSUPPORTED']
         filtered = filtered[filtered.apply(lambda row: self.current_spread(row) < self.context['max_spread'], axis=1)]
-
+        filtered = filtered[filtered.apply(lambda row: self.min_time_above_threshold(price_data, row), axis=1)]
+        
         return filtered
 
     def current_spread(self, prediction):
