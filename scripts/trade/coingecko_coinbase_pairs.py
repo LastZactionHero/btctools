@@ -210,7 +210,7 @@ gecko_coinbase_currency_map = {
     'shiba-inu': 'SHIB',
     'shping': 'SHPING',
     'skale': 'SKL',
-    'status': 'SNT',
+    'status': 'UNSUPPORTED',
     'havven': 'SNX',
     'havven.1': 'SNX',
     'rai-finance': 'UNSUPPORTED', #weird
