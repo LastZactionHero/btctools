@@ -132,8 +132,10 @@ class Broker:
         bids = {"USDC-USDC": 1.0}
         asks = {"USDC-USDC": 1.0}
         for pricebook in prices.pricebooks:
-            bids[pricebook.product_id] = float(pricebook.bids[0].price)
-            asks[pricebook.product_id] = float(pricebook.asks[0].price)
+            if len(pricebook.bids) > 0:
+                bids[pricebook.product_id] = float(pricebook.bids[0].price)
+            if len(pricebook.asks) > 0:
+                asks[pricebook.product_id] = float(pricebook.asks[0].price)
         return asks, bids
 
     def holdings(self):
