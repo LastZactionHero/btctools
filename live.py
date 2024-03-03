@@ -74,7 +74,7 @@ context = {
     "max_delta": 2.5, # 4.3012 default
     "max_spread": 1.0,
     "sell_all_on_hit": False,
-    "loss_recovery_after_minutes": 4 * 24 * 60,
+    "loss_recovery_after_minutes": 10 * 24 * 60,
     "single_buy": True,
     "live_trades": True,
     "time_above_minutes_to_review": 30 * 24 * 60, # 30 days
