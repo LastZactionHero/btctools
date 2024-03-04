@@ -45,6 +45,29 @@ class Buyer:
         filtered = filtered[filtered['Symbol'] != 'UNSUPPORTED']
         filtered = filtered[filtered.apply(lambda row: self.current_spread(row) < self.context['max_spread'], axis=1)]
         filtered = filtered[filtered.apply(lambda row: self.min_time_above_threshold(price_data, row), axis=1)]
+        filtered = self.filter_repeated_orders(filtered)
+        
+        return filtered
+    
+    def filter_repeated_orders(self, filtered):
+        Session = sessionmaker(bind=self.context['engine'])
+        session = Session()
+        repeat_order_count = self.context['max_repeat_orders']
+        last_orders = session.query(Order).order_by(Order.id.desc()).limit(repeat_order_count).all()
+        last_orders_symbols = list(map(lambda o: o.coinbase_product_id.split('-')[0], last_orders))
+        
+        if len(last_orders_symbols) < repeat_order_count:
+            session.commit()
+            session.close()
+            return filtered
+        
+        repeat_order = all(x == last_orders_symbols[0] for x in last_orders_symbols)
+
+        if repeat_order:
+            filtered = filtered[filtered['Symbol'] != last_orders_symbols[0]]
+            self.logger.info(f"Filtering out repeat order {last_orders_symbols[0]}")
+        session.commit()
+        session.close()
         
         return filtered
 
