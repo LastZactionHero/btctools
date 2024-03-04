@@ -31,16 +31,14 @@ Order, sessionmaker, init_db_engine
 # Load DB
 engine = init_db_engine("./db/live_20240226.db")
 
-ignore_open_ids = [61, 62, 63, 64, 65, 109]
+ignore_open_ids = [61, 62, 63, 64, 65, 109, 112]
 
 
 Session = sessionmaker(bind=engine)
 session = Session()
 
-orders_hits = session.query(Order).filter(Order.status == "SOLD")
+orders_hits = session.query(Order).filter(Order.status == "SOLD").all()
 orders_open = session.query(Order).filter(Order.status == "OPEN", ~Order.id.in_(ignore_open_ids)).all()
-
-session.close()
 
 hits = []
 misses = []
@@ -83,3 +81,4 @@ print("25th Percentile:", misses_percentiles[0])
 print("50th Percentile (Median):", misses_percentiles[1])
 print("75th Percentile:", misses_percentiles[2])
 
+session.close()
