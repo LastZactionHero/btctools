@@ -40,12 +40,14 @@ class Buyer:
     def filter_predictions(self, price_data, predictions):
         filtered = predictions.copy()
         
-        filtered = filtered[filtered['Mean Delta'] > self.context['max_delta']]
         filtered['Symbol'] = filtered['Coin'].map(lambda x: gecko_coinbase_currency_map.get(x, 'UNSUPPORTED'))
+        filtered = self.filter_restricted_coins(filtered)
+        filtered = filtered[filtered['Mean Delta'] > self.context['max_delta']]
         filtered = filtered[filtered['Symbol'] != 'UNSUPPORTED']
         filtered = filtered[filtered.apply(lambda row: self.current_spread(row) < self.context['max_spread'], axis=1)]
         filtered = filtered[filtered.apply(lambda row: self.min_time_above_threshold(price_data, row), axis=1)]
         filtered = self.filter_repeated_orders(filtered)
+        
         
         return filtered
     
@@ -69,6 +71,10 @@ class Buyer:
         session.commit()
         session.close()
         
+        return filtered
+
+    def filter_restricted_coins(self, filtered):
+        filtered = filtered[~filtered['Symbol'].isin(self.context['restricted_coins'])]
         return filtered
 
     def current_spread(self, prediction):
