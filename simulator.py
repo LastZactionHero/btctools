@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pandas as pd
 import random
@@ -8,6 +9,7 @@ from scripts.simulator.prediction_cache import PredictionCache
 from scripts.trade.seller import Seller
 from scripts.trade.buyer_prediction_model import BuyerPredictionModel
 from scripts.simulator.coinbase_prices import CoinbasePrices
+
 from scripts.simulator.genetic_context_modifier import GeneticContextModifier
 from scripts.simulator.run_results import RunResults
 from scripts.simulator.broker import Broker
@@ -21,6 +23,21 @@ RANDOM_START_TIMESTAMP = False
 FILENAME_CRYPTO_EXCHANGE_RATES = "./data/crypto_exchange_rates.csv"
 FILENAME_ASKS = "./data/asks.csv"
 FILENAME_BIDS = "./data/bids.csv"
+
+# Setup basic configuration for logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    filename="./logs/simulator.log",  # Example path on Debian
+    filemode="a",
+)  # Append mode
+
+# Creating logger object
+logger = logging.getLogger("LiveLogger")
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
 
 data_crypto_exchange_rates = pd.read_csv(FILENAME_CRYPTO_EXCHANGE_RATES)
 data_asks = pd.read_csv(FILENAME_ASKS)
@@ -73,11 +90,15 @@ for parameter_value in parameter_values:
         "order_amount_usd": 100.0,
         "stop_loss_percent": 0.0782,  # Sweep 2
         "take_profit_percent": 1.1,
-        "max_delta": 4.3012,  # Sweep 4
+        "max_delta": 2.1,  # Sweep 4
         "max_spread": 1.0,  # Sweep 5
         "sell_all_on_hit": False,
         "loss_recovery_after_minutes": parameter_value * 24 * 60,
         "single_buy": True,
+        "live_trades": False,
+        "time_above_minutes_to_review": 30 * 24 * 60,  # 30 days
+        "time_above_threshold": 7.0,  # Must have spent at least 7% of prior month above purchase price
+        "max_repeat_orders": 2,
         "engine": engine,
     }
 
@@ -103,16 +124,16 @@ for parameter_value in parameter_values:
     prices = CoinbasePrices(data_asks, data_bids, timesource)
     broker = Broker(prices)
     prediction_cache = PredictionCache()
-    buyer_prediction_model = BuyerPredictionModel(
-        data_crypto_exchange_rates, cache=prediction_cache, timesource=timesource
-    )
+    buyer_prediction_model = BuyerPredictionModel(timesource, logger=logger, cache=prediction_cache)
+
     buyer = Buyer(
         context=context,
         model=buyer_prediction_model,
         broker=broker,
         timesource=timesource,
+        logger=logger,
     )
-    seller = Seller(context=context, broker=broker, timesource=timesource)
+    seller = Seller(context=context, broker=broker, timesource=timesource, logger=logger)
 
     start_time = datetime.now()
     last_buy_timestamp = 0
@@ -132,7 +153,7 @@ for parameter_value in parameter_values:
             "buy_interval_minutes"
         ] * 60:
             last_buy_timestamp = timesource.now()
-            buyer.buy()
+            buyer.buy(data_crypto_exchange_rates, latest=False)
 
         if (
             context["run_duration_minutes"]

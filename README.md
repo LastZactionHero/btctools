@@ -21,7 +21,10 @@ LIVE PREP:
 - Logger
 
 TODOS:
-- Ship it!
+- Restore simulator
+- DCS: (Coingecko, Coinbase, File Splitting)
+- Simualte with Coinbase Asks, instead of Coingecko
+- Switch to Coinbase prices
 
 
 sweeps

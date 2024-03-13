@@ -24,7 +24,7 @@ class Seller():
 
         for order in orders:
             best_bid = float(best_bids[order.coinbase_product_id])
-            print(f"Order: {order.coinbase_product_id}, {best_bid}")
+            # print(f"Order: {order.coinbase_product_id}, {best_bid}")
             if self.should_trigger_order(order, best_bid):
                 if self.context['sell_all_on_hit']:
                     self.sell_entire_holding(order, best_bid)
