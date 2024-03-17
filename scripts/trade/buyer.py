@@ -55,19 +55,24 @@ class Buyer:
         Session = sessionmaker(bind=self.context['engine'])
         session = Session()
         repeat_order_count = self.context['max_repeat_orders']
-        last_orders = session.query(Order).order_by(Order.id.desc()).limit(repeat_order_count).all()
-        last_orders_symbols = list(map(lambda o: o.coinbase_product_id.split('-')[0], last_orders))
+    
+        # Get all orders that are OPEN.
+        open_orders = session.query(Order).filter_by(status='OPEN').all()
+        # Count occurrences of each coinbase_product_id.
+        product_count = {}
+        for order in open_orders:
+            product_id = order.coinbase_product_id.split('-')[0]
+            if product_id in product_count:
+                product_count[product_id] += 1
+            else:
+                product_count[product_id] = 1
+    
+        # Filter out coins with more than max_repeat_orders in OPEN status.
+        for product_id, count in product_count.items():
+            if count > repeat_order_count:
+                filtered = filtered[filtered['Symbol'] != product_id]
+                self.logger.info(f"Filtering out {product_id} due to repeated open orders.")
         
-        if len(last_orders_symbols) < repeat_order_count:
-            session.commit()
-            session.close()
-            return filtered
-        
-        repeat_order = all(x == last_orders_symbols[0] for x in last_orders_symbols)
-
-        if repeat_order:
-            filtered = filtered[filtered['Symbol'] != last_orders_symbols[0]]
-            self.logger.info(f"Filtering out repeat order {last_orders_symbols[0]}")
         session.commit()
         session.close()
         
