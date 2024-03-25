@@ -177,7 +177,7 @@ gecko_coinbase_currency_map = {
     'orchid-protocol': 'OXT',
     'pax-gold': 'PAX',
     'perpetual-protocol': 'PERP',
-    'playdapp': 'PLA',
+    'playdapp': 'UNSUPPORTED',
     'pluton': 'PLU',
     'pangolin': 'UNSUPPORTED',
     'polkastarter': 'POLS',
