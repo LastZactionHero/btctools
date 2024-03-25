@@ -113,7 +113,10 @@ class Seller():
         return False
 
     def stop_loss_price(self, order):
-        return order.purchase_price * order.stop_loss_percent
+        if order.stop_loss_percent > 1.0:
+            return order.purchase_price * order.stop_loss_percent
+        else:
+            return order.purchase_price * (1 + order.stop_loss_percent)
 
     def profit_price(self, order):
         return order.purchase_price * order.profit_percent
