@@ -68,7 +68,7 @@ context = {
     "run_duration_minutes": None,
     "raise_stoploss_threshold": 1.018,
     "sell_stoploss_floor": 0.00184,
-    "order_amount_usd": 150.0,
+    "order_amount_usd": 300.0,
     "stop_loss_percent": 0.0782,
     "take_profit_percent": 1.1,
     "max_delta": 2.0, # 4.3012 default
