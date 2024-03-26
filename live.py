@@ -79,8 +79,8 @@ context = {
     "live_trades": True,
     "time_above_minutes_to_review": 30 * 24 * 60, # 30 days
     "time_above_threshold": 7.0, # Must have spent at least 7% of prior month above purchase price
-    "max_repeat_orders": 3,
-    "restricted_coins": ['GST', 'LINK', 'LCX'],
+    "max_repeat_orders": 2,
+    "restricted_coins": [],
     "engine": engine,
 }
 Base.metadata.create_all(context["engine"])
