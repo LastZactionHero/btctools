@@ -39,6 +39,7 @@ class Broker:
 
     def buy(self, order_id, product_id, amount_usdc, highest_bid):
         product = self.client.get_product(product_id)
+        self.logger.info("Base Increment: " + product.base_increment)
         base_decimal_precision = len(product.base_increment.split(".")[1])
         base_size = round(amount_usdc / highest_bid, base_decimal_precision)
 
