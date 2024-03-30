@@ -84,7 +84,10 @@ class Broker:
         symbol = product_id.split("-")[0]
         base_size = min(self.holding_available(symbol), amount_product)
 
-        decimal_precision = len(product.base_increment.split(".")[1])
+        decimal_precision = 1
+        if "." in product.base_increment:
+            decimal_precision = len(product.base_increment.split(".")[1])
+
         base_size = round(base_size, decimal_precision)
         sell_order = self.client.create_limit_order(
             client_order_id=client_order_id,
