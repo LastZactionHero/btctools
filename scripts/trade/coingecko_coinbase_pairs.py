@@ -234,7 +234,7 @@ gecko_coinbase_currency_map = {
     'true-usd': 'UNSUPPORTED',
     'the-virtua-kolect': 'TVK',
     'uma': 'UMA',
-    'unifi-protocol-dao': 'UNFI',
+    'unifi-protocol-dao': 'UNSUPPORTED',
     'uniswap': 'UNI',
     'pawtocol': 'UNSUPPORTED',
     'usd-coin': 'USDC',
