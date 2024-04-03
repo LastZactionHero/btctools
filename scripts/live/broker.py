@@ -62,6 +62,7 @@ class Broker:
             product_id=product_id,
             side=Side.BUY,
             base_size=base_size,
+            # cancel_time= "%Y-%m-%dT%H:%M:%SZ" 10 minutes?
             limit_price=bid,
         )
 
